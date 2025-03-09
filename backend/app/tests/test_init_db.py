@@ -9,27 +9,13 @@ logger = logging.getLogger(__name__)
 
 # 預期的表名列表
 EXPECTED_TABLES = {
-    # Healthcare Member 相關表
-    'healthcare_members',
-    'caregivers',
-    'family_members',
-    'medical_team_members',
+    # 用戶認證相關表
+    'user',
+    'item',
     
-    # Patient 相關表
-    'patient',
-    'patient_caregivers',
-    'patient_family_members',
-    
-    # Conversation 相關表
-    'conversations',
-    'messages',
-    'diagnoses',
-    
-    # Symptom 相關表
-    'symptom_records',
-    'symptom_details',
-    'symptom_characteristics',
-    'related_symptom_rules',
+    # 文章相關表
+    'rawarticle',
+    'processedarticle',
 }
 
 async def test_database_connection():

@@ -22,30 +22,11 @@ from .auth.models import (
     UpdatePassword,
 )
 
-from .healthcare_member import (
-    HealthcareMember,
-    HealthcareMemberBase,
-    HealthcareMemberCreate,
-    HealthcareMemberUpdate,
-    Caregiver,
-    CaregiverBase,
-    CaregiverCreate,
-    Family,
-    FamilyBase,
-    FamilyCreate,
-    MedicalTeamMember,
-    MedicalTeamMemberBase,
-    MedicalTeamMemberCreate,
-)
-
-from .enums import (
-    UserRole,
-    PatientStatus,
-    ConversationType,
-    ConversationStatus,
-    MessageType,
-    DiagnosisStatus,
-    SymptomSeverity,
+from .article import (
+    ArticleSource,
+    ArticleStatus,
+    RawArticle,
+    ProcessedArticle,
 )
 
 __all__ = [
@@ -70,27 +51,9 @@ __all__ = [
     'NewPassword',
     'UpdatePassword',
     
-    # Healthcare Member models
-    'HealthcareMember',
-    'HealthcareMemberBase',
-    'HealthcareMemberCreate',
-    'HealthcareMemberUpdate',
-    'Caregiver',
-    'CaregiverBase',
-    'CaregiverCreate',
-    'Family',
-    'FamilyBase',
-    'FamilyCreate',
-    'MedicalTeamMember',
-    'MedicalTeamMemberBase',
-    'MedicalTeamMemberCreate',
-    
-    # Enums
-    'UserRole',
-    'PatientStatus',
-    'ConversationType',
-    'ConversationStatus',
-    'MessageType',
-    'DiagnosisStatus',
-    'SymptomSeverity',
+    # Article models
+    'ArticleSource',
+    'ArticleStatus',
+    'RawArticle',
+    'ProcessedArticle',
 ]

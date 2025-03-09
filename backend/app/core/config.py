@@ -18,32 +18,41 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
 
-def get_env_file() -> str:
-    """Get the appropriate .env file based on the environment.
-    
-    The function will look for the .env file in the following order:
-    1. Use ENVIRONMENT from system environment if set
-    2. Use .env in the project root as default
-    3. If no .env in root, use env-config/local/.env
+def get_env_files() -> list[str]:
+    """Get the appropriate .env files based on the environment.
+    Returns a list of env files in order of precedence (later files override earlier ones).
     """
     # Get the project root directory
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
     
-    # First check if we have a root .env file
-    root_env = project_root / ".env"
-    if root_env.exists():
-        return str(root_env)
+    env_files = []
     
-    # If no root .env, then check system environment
-    env_type = os.getenv("ENVIRONMENT")
+    # First add the default local environment file (lowest precedence)
+    local_env = project_root / "env-config" / "local" / ".env"
+    if local_env.exists():
+        print(f"Found local environment file at: {local_env}")
+        env_files.append(str(local_env))
+    
+    # Then check for environment specific file (medium precedence)
+    env_type = os.getenv("ENVIRONMENT", "local")
     if env_type in ["local", "staging", "production"]:
         env_file = project_root / "env-config" / env_type / ".env"
-        if env_file.exists():
-            return str(env_file)
+        if env_file.exists() and str(env_file) not in env_files:
+            print(f"Found environment specific file at: {env_file}")
+            env_files.append(str(env_file))
     
-    # Default to local environment
-    return str(project_root / "env-config" / "local" / ".env")
+    # Finally check for root .env file (highest precedence)
+    root_env = project_root / ".env"
+    if root_env.exists():
+        print(f"Found root .env file at: {root_env}")
+        env_files.append(str(root_env))
+    
+    if not env_files:
+        warnings.warn("No .env files found!", stacklevel=2)
+    
+    print(f"Using env files in order (later files override earlier ones): {env_files}")
+    return env_files
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -56,14 +65,22 @@ def parse_cors(v: Any) -> list[str] | str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=get_env_file(),
+        env_file=get_env_files(),  # Now accepts a list of files
         env_ignore_empty=True,
         extra="ignore",
     )
     
     # Move ENVIRONMENT to the top since it's critical for configuration
     ENVIRONMENT: Literal["local", "staging", "production"] = os.getenv("ENVIRONMENT", "local")
+    
+    # Debug settings
+    DEBUG_SQL: bool = False  # Default to False, can be overridden in .env file
 
+    # Azure OpenAI settings
+    AZURE_OPENAI_ENDPOINT: str
+    AZURE_OPENAI_API_KEY: str
+    AZURE_OPENAI_API_VERSION: str = "2024-07-01-preview"
+    
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
@@ -145,8 +162,9 @@ class Settings(BaseSettings):
         self._check_default_secret(
             "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
         )
-
         return self
 
 
+print("Initializing Settings...")
 settings = Settings()  # type: ignore
+print("Settings initialized successfully")
