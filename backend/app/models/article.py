@@ -28,7 +28,7 @@ class RawArticle(SQLModel, table=True):
     
     # System fields
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    source: str = Field(index=True)  # 摘要來源類型
+    source: str = Field(index=True)  # Source type for summary
     status: ArticleStatus = Field(default=ArticleStatus.PENDING)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -86,6 +86,7 @@ class ProcessedArticle(SQLModel, table=True):
     """Model for storing cleaned and structured article data"""
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     raw_article_id: UUID = Field(foreign_key="rawarticle.id", index=True)
+    news_id: str = Field(index=True)  # News ID, corresponding to raw article
     
     # Basic Information
     title: str = Field(index=True)
@@ -93,7 +94,7 @@ class ProcessedArticle(SQLModel, table=True):
     summary: Optional[str] = None
     
     # Metadata
-    source: str = Field(index=True)  # 摘要來源類型
+    source: str = Field(index=True)  # Source type for summary
     category_id: int = Field(index=True)
     category_name: str = Field(index=True)
     author: Optional[str] = None
@@ -123,6 +124,7 @@ class ProcessedArticle(SQLModel, table=True):
                 "source": "cnyes_tw",
                 "category_id": 827,
                 "category_name": "Taiwan Stock News",
+                "news_id": "5889905",  # 添加示例 news_id
                 "author": "Anue Reporter",
                 "stocks": ["2049", "1597"],
                 "tags": ["Machine Tools", "TIMTOS", "Robotics"]
@@ -130,12 +132,12 @@ class ProcessedArticle(SQLModel, table=True):
         }
 
 class LatestSummary(SQLModel, table=True):
-    """最新新聞摘要匯總"""
+    """Latest news summary aggregation"""
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    source: str = Field(index=True)  # 摘要來源類型
+    source: str = Field(index=True)  # Source type for summary
     title: str
     summary: str
-    related: List[Dict] = Field(default=[], sa_type=JSON)  # 相關新聞
+    related: List[Dict] = Field(default=[], sa_type=JSON)  # Related news
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -143,12 +145,12 @@ class LatestSummary(SQLModel, table=True):
         schema_extra = {
             "example": {
                 "source": "TW_Stock_Summary",
-                "title": "台股盤前摘要",
-                "summary": "今日台股開盤...",
+                "title": "Taiwan Stock Market Pre-market Summary",
+                "summary": "Today's Taiwan stock market opens...",
                 "related": [
                     {
                         "newsId": "5884805",
-                        "title": "台積電休兵改由中小型股擔綱"
+                        "title": "TSMC Takes a Break as Small-cap Stocks Take the Lead"
                     }
                 ]
             }

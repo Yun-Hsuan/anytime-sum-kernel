@@ -12,7 +12,7 @@ from app.db.session import get_session
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/scraper", tags=["scraper"])
+router = APIRouter(prefix="/scrapers", tags=["scrapers"])
 
 class CnyesSource(str, Enum):
     TW = "tw"
@@ -26,37 +26,37 @@ SOURCE_MAPPING = {
     CnyesSource.HEADLINE: "Hot_News_Summary"
 }
 
-
-@router.post("/cnyes/{source}")
-async def run_cnyes_scraper(
-    source: CnyesSource,
+@router.post("/cnyes/fetch-articles")
+async def fetch_cnyes_articles(
+    source_type: CnyesSource,
     db: Session = Depends(get_session)
 ) -> Dict:
     """
     Fetch articles from Cnyes API and save them to database
     
     Args:
-        source: Source type (tw, us, headline)
+        source_type: Source type (tw, us, headline)
+        db: Database session
         
     Returns:
         Dict: API response containing fetched and saved articles info
     """
     try:
-        article_source = SOURCE_MAPPING[source]
+        article_source = SOURCE_MAPPING[source_type]
         scraper = CnyesScraper(db=db, source=article_source)
         
-        logger.info(f"Fetching and saving articles from Cnyes API for source: {source.value}")
+        logger.info(f"Fetching and saving articles from Cnyes API for source: {source_type.value}")
         
         # Get and save articles using process_article_list method
         saved_articles = await scraper.process_article_list()
         
         if not saved_articles:
-            logger.warning(f"No articles saved from Cnyes API for source: {source.value}")
+            logger.warning(f"No articles saved from Cnyes API for source: {source_type.value}")
         
         # Return save results
         return {
-            "message": f"Successfully processed articles from {source.value}",
-            "source": source.value,
+            "message": f"Successfully processed articles from {source_type.value}",
+            "source": source_type.value,
             "total_saved": len(saved_articles),
             "saved_articles": [
                 {

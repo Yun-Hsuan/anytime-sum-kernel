@@ -6,45 +6,45 @@ from .azure_config import AzureOpenAISettings
 logger = logging.getLogger(__name__)
 
 class AzureOpenAIClient:
-    """Azure OpenAI 客戶端管理器"""
+    """Azure OpenAI Client Manager"""
     
     def __init__(self):
         self.settings = AzureOpenAISettings()
-        # 設置 API 端點和密鑰
+        # Set API endpoint and key
         self.api_endpoint = self.settings.AZURE_OPENAI_ENDPOINT
         self.api_key = self.settings.AZURE_OPENAI_API_KEY
         self.headers = {
             "Content-Type": "application/json",
             "api-key": self.api_key
         }
+        self.deployment_name = self.settings.AZURE_OPENAI_DEPLOYMENT_NAME
         
     async def get_completion(
         self,
         messages: list,
-        model: str = "gpt-4o-mini",
         temperature: float = 0.7,
         max_tokens: Optional[int] = 8000,
         **kwargs
     ) -> Dict[str, Any]:
         """
-        獲取 AI 完成結果
+        Get AI completion result
         
         Args:
-            messages: 對話消息列表
-            model: 模型名稱
-            temperature: 溫度參數
-            max_tokens: 最大 token 數
-            **kwargs: 其他參數
+            messages: List of conversation messages
+            model: Model name
+            temperature: Temperature parameter
+            max_tokens: Maximum number of tokens
+            **kwargs: Additional parameters
             
         Returns:
-            Dict[str, Any]: API 響應結果
+            Dict[str, Any]: API response result
         """
         try:
-            # 構建完整的 API URL
-            deployment = self.settings.AZURE_OPENAI_DEPLOYMENTS.get(model, model)
+            # Build complete API URL
+            deployment = self.deployment_name
             api_url = f"{self.api_endpoint}/openai/deployments/{deployment}/chat/completions?api-version={self.settings.AZURE_OPENAI_API_VERSION}"
             
-            # 準備請求數據
+            # Prepare request data
             payload = {
                 "messages": messages,
                 "temperature": temperature,
@@ -52,7 +52,7 @@ class AzureOpenAIClient:
                 **kwargs
             }
             
-            # 發送請求
+            # Send request
             response = requests.post(
                 api_url,
                 headers=self.headers,
@@ -63,7 +63,7 @@ class AzureOpenAIClient:
             return response.json()
             
         except Exception as e:
-            logger.error(f"Azure OpenAI API 調用失敗: {str(e)}")
+            logger.error(f"Azure OpenAI API call failed: {str(e)}")
             raise
             
     async def get_embedding(
@@ -72,26 +72,26 @@ class AzureOpenAIClient:
         model: str = "text-embedding-ada-002"
     ) -> list:
         """
-        獲取文本嵌入向量
+        Get text embedding vector
         
         Args:
-            text: 輸入文本
-            model: 模型名稱
+            text: Input text
+            model: Model name
             
         Returns:
-            list: 嵌入向量
+            list: Embedding vector
         """
         try:
-            # 構建完整的 API URL
+            # Build complete API URL
             deployment = self.settings.AZURE_OPENAI_DEPLOYMENTS.get(model, model)
             api_url = f"{self.api_endpoint}/openai/deployments/{deployment}/embeddings?api-version={self.settings.AZURE_OPENAI_API_VERSION}"
             
-            # 準備請求數據
+            # Prepare request data
             payload = {
                 "input": text
             }
             
-            # 發送請求
+            # Send request
             response = requests.post(
                 api_url,
                 headers=self.headers,
@@ -103,5 +103,5 @@ class AzureOpenAIClient:
             return result["data"][0]["embedding"]
             
         except Exception as e:
-            logger.error(f"Azure OpenAI Embedding API 調用失敗: {str(e)}")
+            logger.error(f"Azure OpenAI Embedding API call failed: {str(e)}")
             raise 

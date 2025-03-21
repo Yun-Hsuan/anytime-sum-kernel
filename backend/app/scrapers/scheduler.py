@@ -6,8 +6,7 @@ from sqlmodel import Session
 from app.db.session import async_session
 from app.models.enums import CnyesSource
 from app.scrapers.cnyes import CnyesScraper
-from app.ai.services.summary_generator import SummaryGenerator
-from app.ai.services.latest_summary_generator import LatestSummaryGenerator
+from app.services.summary_service import SummaryService
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +30,9 @@ class NewsScheduler:
             
             # 2. Generate article summaries
             if saved_articles:
-                generator = SummaryGenerator()
-                processed_articles = await generator.process_articles(db, limit=len(saved_articles))
-                logger.info(f"Generated {len(processed_articles)} article summaries for {source.value}")
+                summary_service = SummaryService()
+                processed_count = await summary_service.process_pending_articles(db)
+                logger.info(f"Generated {processed_count} article summaries for {source.value}")
                 
         except Exception as e:
             logger.error(f"Error processing {source.value}: {str(e)}")
@@ -41,15 +40,14 @@ class NewsScheduler:
     async def _process_latest_summaries(self, db: Session):
         """Generate latest summaries for all sources"""
         try:
-            generator = LatestSummaryGenerator()
+            summary_service = SummaryService()
             source_types = ["TW_Stock_Summary", "US_Stock_Summary", "Hot_News_Summary"]
             
             for source_type in source_types:
                 try:
-                    latest_summary = await generator.process_latest_news(
+                    latest_summary = await summary_service.generate_category_summary(
                         db=db,
-                        limit=10,
-                        source_type=source_type
+                        category=source_type
                     )
                     if latest_summary:
                         logger.info(f"Successfully generated latest summary for {source_type}")

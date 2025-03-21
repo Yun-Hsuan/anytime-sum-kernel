@@ -2,11 +2,11 @@ from typing import Dict
 from app.core.config import settings
 
 class AzureOpenAISettings:
-    """Azure OpenAI 服務配置"""
+    """Azure OpenAI Service Configuration"""
     
-    # 部署名稱映射
+    # Deployment name mapping
     AZURE_OPENAI_DEPLOYMENTS: Dict[str, str] = {
-        "gpt-4": "gpt-4o-mini"  # 目前只啟用了這個部署
+        "gpt-4": "gpt-4o-mini"  # Only this deployment is currently enabled
     }
     
     @property
@@ -20,3 +20,7 @@ class AzureOpenAISettings:
     @property
     def AZURE_OPENAI_API_VERSION(self) -> str:
         return settings.AZURE_OPENAI_API_VERSION 
+    
+    @property
+    def AZURE_OPENAI_DEPLOYMENT_NAME(self) -> str:
+        return settings.AZURE_OPENAI_DEPLOYMENT_NAME

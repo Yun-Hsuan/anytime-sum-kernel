@@ -78,8 +78,9 @@ class Settings(BaseSettings):
 
     # Azure OpenAI settings
     AZURE_OPENAI_ENDPOINT: str
-    AZURE_OPENAI_API_KEY: str
-    AZURE_OPENAI_API_VERSION: str = "2024-07-01-preview"
+    AZURE_OPENAI_API_KEY: str 
+    AZURE_OPENAI_API_VERSION: str = "2024-07-18-preview"
+    AZURE_OPENAI_DEPLOYMENT_NAME: str = "gpt-4o-mini"
     
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
