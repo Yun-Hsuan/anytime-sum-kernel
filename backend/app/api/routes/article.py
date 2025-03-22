@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 import logging
+from sqlalchemy import desc
 
 from app.db.session import get_session
 from app.models.article import ProcessedArticle, LatestSummary
@@ -37,10 +38,12 @@ async def get_category_summary(
         dict: Dictionary containing category summary content
     """
     try:
-        # Query latest summary
+        # Query latest summary by created_at
         statement = (
             select(LatestSummary)
             .where(LatestSummary.source == source_type)
+            .order_by(desc(LatestSummary.created_at))
+            .limit(1)
         )
         result = await db.execute(statement)
         summary = result.first()

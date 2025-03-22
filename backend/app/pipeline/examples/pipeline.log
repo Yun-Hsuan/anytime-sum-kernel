@@ -1,0 +1,71 @@
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:51:02,387 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:51:02,388 - pipeline.pipeline_executor - INFO - Executing task: FetchArticlesTask
+2025-03-23 01:51:02,388 - pipeline.api_client - DEBUG - Fetching articles for source_type: tw
+2025-03-23 01:51:32,429 - pipeline.api_client - ERROR - Request timeout: 
+2025-03-23 01:52:06,471 - pipeline.api_client - ERROR - Request timeout: 
+2025-03-23 01:52:40,512 - pipeline.api_client - ERROR - Request timeout: 
+2025-03-23 01:52:40,512 - pipeline.pipeline_executor - ERROR - Task failed: FetchArticlesTask, error: 請求超時: 
+2025-03-23 01:52:40,512 - pipeline.FetchArticlesTask - ERROR - Task failed: FetchArticlesTask, error: 請求超時: 
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:57:22,675 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - Initializing PipelineAPIClient with settings:
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - API Base URL: http://localhost:8000
+2025-03-23 01:57:22,676 - pipeline.api_client - DEBUG - API Endpoints configuration:
+2025-03-23 01:57:22,677 - pipeline.api_client - DEBUG - SCRAPER_CONFIG: path='/api/v1/scrapers/scrapers/cnyes/fetch-articles' method='POST' params={'source_type': '{source_type}'} headers={} timeout=30
+2025-03-23 01:57:22,677 - pipeline.api_client - DEBUG - PROCESS_CONFIG: path='/api/v1/articles/process-pending' method='POST' params={'limit': 150} headers={} timeout=30
+2025-03-23 01:57:22,677 - pipeline.api_client - DEBUG - SUMMARY_CONFIG: path='/api/v1/articles/latest-summaries' method='POST' params={'source': '{source}', 'limit': 30} headers={} timeout=30
+2025-03-23 01:57:22,677 - pipeline.api_client - DEBUG - ==================================================
+2025-03-23 01:57:22,677 - pipeline.pipeline_executor - INFO - Executing task: FetchArticlesTask
+2025-03-23 01:57:22,677 - pipeline.api_client - DEBUG - Fetching articles for source_type: tw
+2025-03-23 01:57:22,842 - pipeline.api_client - DEBUG - Making POST request to http://localhost:8000/api/v1/scrapers/scrapers/cnyes/fetch-articles
+2025-03-23 01:57:22,842 - pipeline.api_client - DEBUG - Query params: {'source_type': 'tw'}
+2025-03-23 01:57:22,842 - pipeline.api_client - DEBUG - Body: {'source_type': '{source_type}'}
+2025-03-23 01:57:22,843 - pipeline.FetchArticlesTask - INFO - Task completed successfully: FetchArticlesTask
+2025-03-23 01:57:22,843 - pipeline.pipeline_executor - INFO - Executing task: ProcessArticlesTask
+2025-03-23 01:57:22,856 - pipeline.api_client - DEBUG - Making POST request to http://localhost:8000/api/v1/articles/process-pending
+2025-03-23 01:57:22,856 - pipeline.api_client - DEBUG - Query params: {'limit': 150}
+2025-03-23 01:57:22,856 - pipeline.api_client - DEBUG - Body: {'limit': 150}
+2025-03-23 01:57:22,856 - pipeline.ProcessArticlesTask - INFO - Task completed successfully: ProcessArticlesTask
+2025-03-23 01:57:22,856 - pipeline.pipeline_executor - INFO - Executing task: GenerateSummariesTask
+2025-03-23 01:57:29,743 - pipeline.api_client - DEBUG - Making POST request to http://localhost:8000/api/v1/articles/latest-summaries
+2025-03-23 01:57:29,743 - pipeline.api_client - DEBUG - Query params: {'source': 'TW_Stock_Summary', 'limit': 150}
+2025-03-23 01:57:29,743 - pipeline.api_client - DEBUG - Body: {'source': '{source}', 'limit': 30}
+2025-03-23 01:57:29,743 - pipeline.GenerateSummariesTask - INFO - Task completed successfully: GenerateSummariesTask
