@@ -9,6 +9,7 @@ import logging
 from .base import BaseSummaryGenerator
 from app.models.article import RawArticle, ProcessedArticle
 from .prompts.article import SYSTEM_PROMPT
+from .prompts.title import TITLE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -67,3 +68,36 @@ class SingleArticleSummaryGenerator(BaseSummaryGenerator):
         )
         articles = (await db.execute(statement)).scalars().all()
         return await self.process_articles(db, articles)
+
+    async def generate_title(self, content: str) -> str:
+        """
+        Generate title from article summary
+        
+        Args:
+            content: Article summary content
+            
+        Returns:
+            str: Generated title (max 20 characters)
+        """
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": TITLE_SYSTEM_PROMPT
+                },
+                {
+                    "role": "user", 
+                    "content": content
+                }
+            ]
+            
+            response = await self.ai_client.get_completion(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=50  # 標題較短，可以設置較小的 max_tokens
+            )
+            return response["choices"][0]["message"]["content"].strip()
+            
+        except Exception as e:
+            logger.error(f"Error generating article title: {str(e)}")
+            return ""

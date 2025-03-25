@@ -10,6 +10,7 @@ import logging
 from .base import BaseSummaryGenerator
 from app.models.article import RawArticle, LatestSummary
 from .prompts.category import get_system_prompt
+from .prompts.title import TITLE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -234,3 +235,40 @@ class CategorySummaryGenerator(BaseSummaryGenerator):
             
         await db.commit()
         return latest_summary
+
+    async def generate_title(self, content: str, source_type: str) -> str:
+        """
+        Generate title from category summary
+        
+        Args:
+            content: Category summary content
+            source_type: Type of news source (TW_Stock_Summary/US_Stock_Summary/Hot_News_Summary)
+            
+        Returns:
+            str: Generated title (max 20 characters)
+        """
+        try:
+            # 添加源類型資訊到內容中以生成更相關的標題
+            context = f"新聞類型：{self.SOURCE_TITLE_MAPPING[source_type]}\n摘要內容：{content}"
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": TITLE_SYSTEM_PROMPT
+                },
+                {
+                    "role": "user", 
+                    "content": context
+                }
+            ]
+            
+            response = await self.ai_client.get_completion(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=50
+            )
+            return response["choices"][0]["message"]["content"].strip()
+            
+        except Exception as e:
+            logger.error(f"Error generating category title: {str(e)}")
+            raise ValueError(f"生成標題失敗: {str(e)}")  # 保持與 generate_summary 一致的錯誤處理方式
