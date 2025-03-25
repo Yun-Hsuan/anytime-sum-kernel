@@ -24,29 +24,32 @@ def get_env_files() -> list[str]:
     """
     # Get the project root directory
     current_file = Path(__file__).resolve()
-    project_root = current_file.parent.parent.parent.parent
+    working_dir = Path(os.getcwd())
+    
+    print(f"Current file path: {current_file}")
+    print(f"Working directory: {working_dir}")
+    print(f"Environment variable ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
     
     env_files = []
     
-    # First add the default local environment file (lowest precedence)
-    local_env = project_root / "env-config" / "local" / ".env"
-    if local_env.exists():
-        print(f"Found local environment file at: {local_env}")
-        env_files.append(str(local_env))
+    # First check for mounted .env file
+    mounted_env = working_dir / ".env"
+    print(f"Checking for mounted .env file at: {mounted_env}")
+    print(f"Mounted .env exists: {mounted_env.exists()}")
+    if mounted_env.exists():
+        print(f"Found mounted .env file at: {mounted_env}")
+        env_files.append(str(mounted_env))
+        return env_files
     
-    # Then check for environment specific file (medium precedence)
+    # If no mounted .env file, try environment specific file
     env_type = os.getenv("ENVIRONMENT", "local")
     if env_type in ["local", "staging", "production"]:
-        env_file = project_root / "env-config" / env_type / ".env"
-        if env_file.exists() and str(env_file) not in env_files:
+        env_file = working_dir / "env-config" / env_type / ".env"
+        print(f"Checking for environment file at: {env_file}")
+        print(f"Environment file exists: {env_file.exists()}")
+        if env_file.exists():
             print(f"Found environment specific file at: {env_file}")
             env_files.append(str(env_file))
-    
-    # Finally check for root .env file (highest precedence)
-    root_env = project_root / ".env"
-    if root_env.exists():
-        print(f"Found root .env file at: {root_env}")
-        env_files.append(str(root_env))
     
     if not env_files:
         warnings.warn("No .env files found!", stacklevel=2)
@@ -72,6 +75,8 @@ class Settings(BaseSettings):
     
     # Move ENVIRONMENT to the top since it's critical for configuration
     ENVIRONMENT: Literal["local", "staging", "production"] = os.getenv("ENVIRONMENT", "local")
+    
+    print(f"Settings ENVIRONMENT value: {ENVIRONMENT}")
     
     # Debug settings
     DEBUG_SQL: bool = False  # Default to False, can be overridden in .env file
