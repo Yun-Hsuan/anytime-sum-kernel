@@ -2,6 +2,7 @@
 Article related routes
 """
 
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -56,11 +57,15 @@ async def get_category_summary(
             
         summary = summary[0]
         
+        # 將時間加上8小時並轉換為epoch time
+        created_at_utc8 = summary.created_at + timedelta(hours=8)
+        created_at_epoch = int(created_at_utc8.timestamp())
+        
         # Build response format
         response = {
             "source": summary.source,
             "summary": summary.summary,
-            "created_at": summary.created_at.isoformat() + "Z",
+            "created_at": created_at_epoch,
             "title": summary.title,
             "related": summary.related
         }
@@ -113,10 +118,11 @@ async def process_pending_articles(
             detail=f"Error processing articles: {str(e)}"
         )
 
-@router.post("/latest-summaries", response_model=LatestSummariesResponse)
+@router.post("/latest-summaries")
 async def generate_latest_summaries(
     source: str,
-    limit: Optional[int] = 30,
+    fetch_limit: Optional[int] = 30,
+    summary_limit: Optional[int] = 20,
     db: Session = Depends(get_session)
 ) -> LatestSummariesResponse:
     """
@@ -127,7 +133,8 @@ async def generate_latest_summaries(
                - "TW_Stock_Summary": Taiwan stock market news
                - "US_Stock_Summary": US stock market news
                - "Hot_News_Summary": Hot topics and trending news
-        limit: Maximum number of articles to fetch (default: 30)
+        fetch_limit: Maximum number of articles to fetch from database (default: 30)
+        summary_limit: Number of articles to include in summary (default: 20)
         db: Database session
         
     Returns:
@@ -150,7 +157,8 @@ async def generate_latest_summaries(
         latest_summary, selected_articles = await summary_service.generate_category_summary(
             db=db,
             source=source,
-            fetch_limit=limit
+            fetch_limit=fetch_limit,
+            summary_limit=summary_limit
         )
         
         if not latest_summary:

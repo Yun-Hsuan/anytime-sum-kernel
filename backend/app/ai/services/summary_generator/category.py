@@ -31,210 +31,205 @@ class CategorySummaryGenerator(BaseSummaryGenerator):
         "Hot_News_Summary": "財經熱門新聞"
     }
 
-    async def generate_summary(self, content: List[dict], source_type: str) -> str:
+    async def generate_summary(self, content: str, source_type: str, highlight_count: int = 6, total_count: int = 20) -> str:
         """
         Generate summary for multiple articles
         
         Args:
-            content: List of article dictionaries, each containing:
-                    - title: article title
-                    - summary: article summary
-                    - news_id: article ID
-                    - url: complete article URL
+            content: Formatted article content
             source_type: Type of news source
+            highlight_count: Number of articles in highlight section
             
         Returns:
             str: Generated summary
         """
         try:
-            # 將 List[dict] 轉換為適合 prompt 的格式
-            formatted_content = []
-            for article in content:
-                formatted_content.append(
-                    f"文章ID：{article['news_id']}\n"
-                    f"標題：{article['title']}\n"
-                    f"內容：{article['summary']}\n"
-                    f"連結：{article['url']}"
-                )
+            total_count = len(content.split('文章 ')) - 1  # 計算總文章數
             
-            # 組合所有文章內容
-            combined_content = "\n\n".join(formatted_content)
+            # 添加日誌來追蹤內容長度
+            logger.info(f"Input content length: {len(content)} characters")
+            logger.info(f"Number of articles: {total_count}")
             
-            print(combined_content)
             messages = [
                 {
                     "role": "system",
-                    "content": get_system_prompt(source_type)
+                    "content": get_system_prompt(
+                        source_type=source_type,
+                        highlight_count=highlight_count,
+                        total_count=total_count
+                    )
                 },
                 {
                     "role": "user",
-                    "content": combined_content
+                    "content": content
                 }
             ]
-            
+            print("--------------------------------")
+            print(content)
+            print("--------------------------------")
             response = await self.ai_client.get_completion(
                 messages=messages,
-                temperature=0.7,
-                max_tokens=1200
+                temperature=0.75,
+                max_tokens=12000
             )
             return response["choices"][0]["message"]["content"].strip()
             
         except Exception as e:
             logger.error(f"Error generating category summary: {str(e)}")
-            raise ValueError(f"生成摘要失敗: {str(e)}")  # 改為拋出異常而不是返回空字符串
+            raise ValueError(f"生成摘要失敗: {str(e)}")
 
-    async def process_category_summary(
-        self,
-        db,
-        source_type: str,
-        fetch_limit: int = 30,
-        process_limit: int = 15
-    ) -> LatestSummary:
-        """
-        Generate category summary from latest articles
+    # async def process_category_summary(
+    #     self,
+    #     db,
+    #     source_type: str,
+    #     fetch_limit: int = 30,
+    #     process_limit: int = 20
+    # ) -> LatestSummary:
+    #     """
+    #     Generate category summary from latest articles
         
-        Args:
-            db: Database session
-            source_type: Type of news source
-            fetch_limit: Number of latest articles to fetch
-            process_limit: Number of articles to include in summary
+    #     Args:
+    #         db: Database session
+    #         source_type: Type of news source
+    #         fetch_limit: Number of latest articles to fetch
+    #         process_limit: Number of articles to include in summary
             
-        Returns:
-            LatestSummary: Generated category summary
-        """
-        if source_type not in self.ALLOWED_SOURCES:
-            raise ValueError(f"Invalid source type: {source_type}")
+    #     Returns:
+    #         LatestSummary: Generated category summary
+    #     """
+    #     if source_type not in self.ALLOWED_SOURCES:
+    #         raise ValueError(f"Invalid source type: {source_type}")
 
-        # Fetch latest articles
-        articles = await self._fetch_latest_articles(db, source_type, fetch_limit)
-        if not articles:
-            return None
+    #     # Fetch latest articles
+    #     articles = await self._fetch_latest_articles(db, source_type, fetch_limit)
+    #     if not articles:
+    #         return None
 
-        # Select articles for processing
-        selected_articles = self._select_articles_for_summary(articles, process_limit)
+    #     # Select articles for processing
+    #     selected_articles = self._select_articles_for_summary(articles, process_limit)
         
-        # Generate summary
-        combined_content = self._prepare_articles_content(selected_articles)
-        summary = await self.generate_summary(selected_articles, source_type)
+    #     # Generate summary
+    #     combined_content = self._prepare_articles_content(selected_articles)
+    #     summary = await self.generate_summary(selected_articles, source_type)
         
-        # Create or update summary
-        return await self._create_or_update_latest_summary(
-            db, source_type, summary, selected_articles
-        )
+    #     # Create or update summary
+    #     return await self._create_or_update_latest_summary(
+    #         db, source_type, summary, selected_articles
+    #     )
 
-    async def _fetch_latest_articles(
-        self, 
-        db, 
-        source_type: str, 
-        limit: int
-    ) -> List[RawArticle]:
-        """
-        Fetch latest articles for a category
+    # async def _fetch_latest_articles(
+    #     self, 
+    #     db, 
+    #     source_type: str, 
+    #     limit: int
+    # ) -> List[RawArticle]:
+    #     """
+    #     Fetch latest articles for a category
         
-        Args:
-            db: Database session
-            source_type: Type of news source
-            limit: Number of articles to fetch
+    #     Args:
+    #         db: Database session
+    #         source_type: Type of news source
+    #         limit: Number of articles to fetch
             
-        Returns:
-            List[RawArticle]: List of fetched articles
-        """
-        statement = (
-            select(RawArticle)
-            .where(RawArticle.source == source_type)
-            .order_by(RawArticle.pub_date.desc())
-            .limit(limit)
-        )
-        return (await db.execute(statement)).scalars().all()
+    #     Returns:
+    #         List[RawArticle]: List of fetched articles
+    #     """
+    #     statement = (
+    #         select(RawArticle)
+    #         .where(RawArticle.source == source_type)
+    #         .order_by(RawArticle.pub_date.desc())
+    #         .limit(limit)
+    #     )
+    #     return (await db.execute(statement)).scalars().all()
 
-    def _select_articles_for_summary(
-        self, 
-        articles: List[RawArticle], 
-        limit: int
-    ) -> List[RawArticle]:
-        """
-        Select articles for summary generation
+    # def _select_articles_for_summary(
+    #     self, 
+    #     articles: List[RawArticle], 
+    #     limit: int
+    # ) -> List[RawArticle]:
+    #     """
+    #     Select articles for summary generation
         
-        Args:
-            articles: List of articles to select from
-            limit: Number of articles to select
+    #     Args:
+    #         articles: List of articles to select from
+    #         limit: Number of articles to select
             
-        Returns:
-            List[RawArticle]: Selected articles
-        """
-        # TODO: Implement more sophisticated selection logic
-        return articles[:limit]
+    #     Returns:
+    #         List[RawArticle]: Selected articles
+    #     """
+    #     # TODO: Implement more sophisticated selection logic
+    #     return articles[:limit]
 
-    def _prepare_articles_content(self, articles: List[RawArticle]) -> str:
-        """
-        Prepare articles content for summary generation
+    # def _prepare_articles_content(self, articles: List[RawArticle]) -> str:
+    #     """
+    #     Prepare articles content for summary generation
         
-        Args:
-            articles: List of articles to prepare
+    #     Args:
+    #         articles: List of articles to prepare
             
-        Returns:
-            str: Combined articles content
-        """
-        article_texts = []
-        for article in articles:
-            article_texts.append(f"標題：{article.title}\n內容：{article.news_content}\n")
-        return "\n---\n".join(article_texts)
+    #     Returns:
+    #         str: Combined articles content
+    #     """
+    #     article_texts = []
+    #     for article in articles:
+    #         article_texts.append(f"標題：{article.title}\n內容：{article.news_content}\n")
+    #     return "\n---\n".join(article_texts)
 
-    async def _create_or_update_latest_summary(
-        self,
-        db,
-        source_type: str,
-        summary: str,
-        articles: List[RawArticle]
-    ) -> LatestSummary:
-        """
-        Create or update latest summary
+    # async def _create_or_update_latest_summary(
+    #     self,
+    #     db,
+    #     source_type: str,
+    #     summary: str,
+    #     articles: List[RawArticle]
+    # ) -> LatestSummary:
+    #     """
+    #     Create or update latest summary
         
-        Args:
-            db: Database session
-            source_type: Type of news source
-            summary: Generated summary
-            articles: List of related articles
+    #     Args:
+    #         db: Database session
+    #         source_type: Type of news source
+    #         summary: Generated summary
+    #         articles: List of related articles
             
-        Returns:
-            LatestSummary: Created or updated summary
-        """
-        # Prepare related articles list
-        related = [
-            {
-                "newsId": str(article.news_id),
-                "title": article.title
-            }
-            for article in articles
-        ]
+    #     Returns:
+    #         LatestSummary: Created or updated summary
+    #     """
+    #     # Prepare related articles list
+    #     related = [
+    #         {
+    #             "newsId": str(article.news_id),
+    #             "title": article.title
+    #         }
+    #         for article in articles
+    #     ]
         
-        # Check if summary exists
-        existing = await db.execute(
-            select(LatestSummary)
-            .where(LatestSummary.source == source_type)
-        )
-        existing = existing.first()
+    #     # Check if summary exists
+    #     existing = await db.execute(
+    #         select(LatestSummary)
+    #         .where(LatestSummary.source == source_type)
+    #     )
+    #     existing = existing.first()
         
-        if existing:
-            # Update existing summary
-            existing = existing[0]
-            existing.summary = summary
-            existing.title = self.SOURCE_TITLE_MAPPING[source_type]
-            existing.related = related
-            existing.updated_at = datetime.utcnow()
-            latest_summary = existing
-        else:
-            # Create new summary
-            latest_summary = LatestSummary(
-                source=source_type,
-                title=self.SOURCE_TITLE_MAPPING[source_type],
-                summary=summary,
-                related=related
-            )
-            db.add(latest_summary)
+    #     if existing:
+    #         # Update existing summary
+    #         existing = existing[0]
+    #         existing.summary = summary
+    #         existing.title = self.SOURCE_TITLE_MAPPING[source_type]
+    #         existing.related = related
+    #         existing.updated_at = datetime.utcnow()
+    #         latest_summary = existing
+    #     else:
+    #         # Create new summary
+    #         latest_summary = LatestSummary(
+    #             source=source_type,
+    #             title=self.SOURCE_TITLE_MAPPING[source_type],
+    #             summary=summary,
+    #             related=related
+    #         )
+    #         db.add(latest_summary)
             
-        await db.commit()
-        return latest_summary
+    #     await db.commit()
+    #     return latest_summary
 
     async def generate_title(self, content: str, source_type: str) -> str:
         """

@@ -78,62 +78,66 @@ class TWStockSelector(ArticleSelector):
     def select_articles(
         self, 
         articles: List[ProcessedArticle],
-        limit: int = 15
-    ) -> List[ProcessedArticle]:
+        select_limit: int = 20,
+        top30_stock_limit: int = 7,
+    ) -> Tuple[List[ProcessedArticle], int, int]:
         """
         選擇台股相關新聞
         
-        規則：
-        1. 輸入文章最多30篇
-        2. 如果總數少於15篇，直接返回全部
-        3. 市值前30大相關新聞優先選5篇（按時間排序）
-        4. 剩餘名額由其他文章依照時間順序補滿
+        Args:
+            articles: 要篩選的文章列表
+            select_limit: 總共要選擇的文章數量
+            top30_stock_limit: top30相關文章的數量限制
+            
+        Returns:
+            Tuple[List[ProcessedArticle], int, int]: 
+                - 選中的文章列表
+                - highlight 文章數量
+                - 總文章數量
         """
         logger.info(f"開始篩選台股新聞，輸入文章數量: {len(articles)}")
         
         # 如果文章總數少於15篇，直接返回全部
-        if len(articles) <= limit:
-            logger.info(f"文章數量({len(articles)})小於等於{limit}篇，返回全部文章")
-            return articles
-            
-        # 先找出所有 top30 相關的文章
-        top30_articles = []
-        for article in articles:
-            if self._is_top30_stock(article):
-                top30_articles.append(article)
+        if len(articles) <= select_limit:
+            logger.info(f"文章數量({len(articles)})小於等於{select_limit}篇，返回全部文章")
+            return articles, 0, len(articles)
+        # 1. 先按時間排序選出最新的30篇
+        articles.sort(key=lambda x: x.published_at, reverse=True)
+        logger.info(f"選出最新的{select_limit}篇文章")
         
-        logger.info(f"找到市值前30大相關文章: {len(top30_articles)}篇")
+        # 2. 從這些文章中找出 top30 相關的文章，並限制數量
+        top30_stock_articles = [
+            article for article in articles
+            if self._is_top30_stock(article)
+        ][:top30_stock_limit]
         
-        # 按發布時間排序並選擇最新的5篇 top30 文章
-        top30_articles.sort(key=lambda x: x.published_at, reverse=True)
-        selected_top30 = top30_articles[:5]
-        logger.info(f"選出最新的 {len(selected_top30)} 篇市值前30大相關文章")
+        logger.info(f"從{select_limit}篇中選出 {len(top30_stock_articles)} 篇市值前30大相關文章")
         
-        # 將未被選中的 top30 文章和其他文章合併，作為候選文章
-        used_ids = {article.news_id for article in selected_top30}
-        other_candidates = [
+        # 3. 從剩餘文章中選出補充文章
+        used_ids = {article.news_id for article in top30_stock_articles}
+        remaining_articles = [
             article for article in articles 
             if article.news_id not in used_ids
         ]
         
-        # 對剩餘文章按時間排序
-        other_candidates.sort(key=lambda x: x.published_at, reverse=True)
-        
-        # 選擇剩餘名額
-        remaining_slots = limit - len(selected_top30)
-        selected_others = other_candidates[:remaining_slots]
-        
-        logger.info(f"從剩餘 {len(other_candidates)} 篇文章中選出 {len(selected_others)} 篇補充")
+        # 選擇剩餘文章（已經是按時間排序的）
+        remaining_limit = select_limit - len(top30_stock_articles)
+        selected_others = remaining_articles[:remaining_limit]
+        logger.info(f"選出剩餘 {len(selected_others)} 篇補充文章")
         
         # 合併結果
-        selected = selected_top30 + selected_others
+        selected = top30_stock_articles + selected_others
         
         logger.info(f"篩選完成，共選出 {len(selected)} 篇文章:")
-        logger.info(f"- 市值前30大相關: {len(selected_top30)} 篇")
+        logger.info(f"- 市值前30大相關: {len(top30_stock_articles)} 篇")
         logger.info(f"- 其他文章: {len(selected_others)} 篇")
         
         # 記錄選中的文章
         for idx, article in enumerate(selected, 1):
             logger.info(f"已選擇 {idx}: {article.news_id} ({article.title})")
         
-        return selected 
+        # 最後返回時加入兩個新的值
+        highlight_count = len(top30_stock_articles)
+        total_count = len(selected)
+        
+        return selected, highlight_count, total_count 
