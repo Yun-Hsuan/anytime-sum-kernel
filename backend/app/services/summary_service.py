@@ -3,7 +3,7 @@ Summary generation related business logic
 """
 
 from typing import List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 import logging
 
@@ -25,7 +25,9 @@ class SummaryService:
     
     def __init__(self):
         self.category_generator = CategorySummaryGenerator()
-
+        # 設定為 UTC+8 時區
+        self.taiwan_tz = timezone(timedelta(hours=+8))
+    
     async def get_latest_articles_by_source(
         self,
         db,
@@ -55,8 +57,8 @@ class SummaryService:
         self,
         articles: List[ProcessedArticle],
         source: str,
-        limit: int = 15
-    ) -> List[ProcessedArticle]:
+        select_limit: int = 20
+    ) -> Tuple[List[ProcessedArticle], int, int]:
         """
         使用對應的選擇器選擇文章
         
@@ -66,7 +68,10 @@ class SummaryService:
             limit: 選擇數量限制
             
         Returns:
-            List[ProcessedArticle]: 選中的文章列表
+            Tuple[List[ProcessedArticle], int, int]:
+                - 選中的文章列表
+                - highlight 文章數量
+                - 總文章數量
         """
         logger.info(f"開始選擇文章 - 來源: {source}, 候選文章數量: {len(articles)}")
         
@@ -111,8 +116,13 @@ class SummaryService:
         
         # 使用選擇器選擇文章
         try:
-            selected = selector.select_articles(articles, limit)
-            logger.info(f"選擇完成，選中 {len(selected)} 篇文章")
+            top30_limit = int(select_limit/3) + 1
+            selected, highlight_count, total_count = selector.select_articles(
+                articles, 
+                select_limit=select_limit,
+                top30_stock_limit=top30_limit
+            )
+            logger.info(f"選擇完成，選中 {len(selected)} 篇文章，其中 highlight 文章 {highlight_count} 篇")
             
             # 記錄選中的文章
             if selected:
@@ -122,12 +132,13 @@ class SummaryService:
             else:
                 logger.warning("沒有文章被選中！")
             
-            return selected
+            return selected, highlight_count, total_count
+        
         except Exception as e:
             logger.error(f"文章選擇過程發生錯誤: {str(e)}")
             raise
 
-    def prepare_content_for_summary(self, articles: List[ProcessedArticle]) -> List[dict]:
+    def prepare_content_for_summary(self, articles: List[ProcessedArticle]) -> str:
         """
         Prepare content for summary generation, including complete article links
         
@@ -135,24 +146,31 @@ class SummaryService:
             articles: List of selected articles
             
         Returns:
-            List[dict]: List of complete article information
+            str: Formatted article content string for summary generation
         """
-        return [
-            {
-                'title': article.title,
-                'summary': article.summary,
-                'news_id': article.news_id,
-                'url': f"https://news.cnyes.com/news/id/{article.news_id}"
-            }
-            for article in articles
-        ]
+        formatted_articles = []
+        for article in articles:
+            # 限制摘要長度以控制總輸入長度
+            summary = article.summary[:300] if article.summary else ''
+            formatted_articles.append(
+                f"文章ID：{article.news_id}\n"
+                f"標題：{article.title}\n" 
+                f"內容：{summary}\n"
+                f"連結：https://news.cnyes.com/news/id/{article.news_id}"
+            )
+        
+        # 確保返回字串
+        combined_content = "\n\n".join(formatted_articles)
+        logger.info(f"準備了 {len(articles)} 篇文章的內容，總長度：{len(combined_content)} 字元")
+        return combined_content
+    
 
     async def generate_category_summary(
         self,
         db,
         source: str,
         fetch_limit: int = 30,
-        summary_limit: int = 15
+        summary_limit: int = 20
     ) -> Tuple[LatestSummary, List[ProcessedArticle]]:
         """
         Generate category summary
@@ -186,7 +204,7 @@ class SummaryService:
 
         # 2. Select articles to include
         try:
-            selected_articles = self.select_articles_for_summary(
+            selected_articles, highlight_count, total_count = self.select_articles_for_summary(
                 latest_articles, 
                 source,
                 summary_limit
@@ -208,18 +226,30 @@ class SummaryService:
         try:
             summary = await self.category_generator.generate_summary(
                 content=prepared_articles,
-                source_type=source
+                source_type=source,
+                highlight_count=highlight_count,
+                total_count=total_count
             )
             logger.info("成功生成摘要")
+            
+            # 4.1 Generate title based on summary
+            title = await self.category_generator.generate_title(
+                content=summary,
+                source_type=source
+            )
+            logger.info("成功生成標題")
         except Exception as e:
-            logger.error(f"生成摘要時發生錯誤: {str(e)}")
+            logger.error(f"生成摘要或標題時發生錯誤: {str(e)}")
             raise
 
         # 5. Create or update LatestSummary
         try:
+            # 始終使用 UTC 時間存儲
+            current_time = datetime.now(timezone.utc)
+            
             latest_summary = LatestSummary(
                 source=source,
-                title=f"{source} 最新動態",
+                title=title,
                 summary=summary,
                 related=[
                     {
@@ -228,8 +258,8 @@ class SummaryService:
                     }
                     for article in selected_articles
                 ],
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=current_time,
+                updated_at=current_time
             )
             
             db.add(latest_summary)
