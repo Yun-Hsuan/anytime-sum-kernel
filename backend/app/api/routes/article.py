@@ -2,8 +2,7 @@
 Article related routes
 """
 
-from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 import logging
@@ -16,7 +15,6 @@ from app.schemas.article import (
     ProcessedArticleResponse,
     ProcessPendingResponse,
     LatestSummariesResponse,
-    CategorySummaryResponse
 )
 from app.services.summary_service import SummaryService
 
@@ -58,7 +56,7 @@ async def get_category_summary(
         summary = summary[0]
         
         # 將時間加上8小時並轉換為epoch time
-        created_at_utc8 = summary.created_at + timedelta(hours=8)
+        created_at_utc8 = summary.created_at
         created_at_epoch = int(created_at_utc8.timestamp())
         
         # Build response format
