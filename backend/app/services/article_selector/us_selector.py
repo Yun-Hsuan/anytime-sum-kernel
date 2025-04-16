@@ -41,6 +41,8 @@ class USStockSelector(ArticleSelector):
         '思愛普': 'SAP',
         'T-Mobile': 'TMUS'
     }
+
+    SECTION_LIMITS = [5, 10]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
@@ -139,4 +141,59 @@ class USStockSelector(ArticleSelector):
         highlight_count = len(top30_stock_articles)
         total_count = len(selected)
         
-        return selected, highlight_count, total_count  
+        return selected, highlight_count, total_count 
+
+
+    def select_articles_by_sections(
+        self, 
+        articles: List[ProcessedArticle]
+    ) -> List[List[ProcessedArticle]]:
+        """
+        將文章依照不同段落分組選擇
+        
+        Args:
+            articles: 要篩選的文章列表
+            section_limits: 每個段落的文章數量限制列表
+            
+        Returns:
+            List[List[ProcessedArticle]]: 分段後的文章列表，每個子列表代表一個段落的文章
+        """
+        logger.info(f"開始分段篩選台股新聞，輸入文章數量: {len(articles)}")
+        
+        # 1. 先按時間排序
+        articles.sort(key=lambda x: x.published_at, reverse=True)
+        
+        # 2. 找出所有 top30 相關的文章
+        top30_stock_articles = [
+            article for article in articles
+            if self._is_top30_stock(article)
+        ]
+        
+        # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
+        first_section_limit = min(self.SECTION_LIMITS[0], len(top30_stock_articles))
+        first_section = top30_stock_articles[:first_section_limit]
+        
+        # 3. 找出非 top30 的文章，按時間排序
+        used_ids = {article.news_id for article in first_section}
+        remaining_articles = [
+            article for article in articles 
+            if article.news_id not in used_ids
+        ]
+        
+        # 第二段：剩餘文章，數量為總限制減去第一段的數量
+        total_limit = self.SECTION_LIMITS[0]+self.SECTION_LIMITS[1]
+        second_section_limit = total_limit - first_section_limit
+        second_section = remaining_articles[:second_section_limit]
+        
+        sectioned_articles = [first_section, second_section]
+        
+        # 記錄日誌
+        logger.info(f"第一段（Top30相關）: 選中 {len(first_section)} 篇文章")
+        for idx, article in enumerate(first_section, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title} [Top30]")
+        
+        logger.info(f"第二段（時間排序）: 選中 {len(second_section)} 篇文章")
+        for idx, article in enumerate(second_section, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        
+        return sectioned_articles 

@@ -116,7 +116,7 @@ async def process_pending_articles(
             detail=f"Error processing articles: {str(e)}"
         )
 
-@router.post("/latest-summaries")
+@router.post("/latest-summaries-legacy")
 async def generate_latest_summaries(
     source: str,
     fetch_limit: Optional[int] = 30,
@@ -181,4 +181,112 @@ async def generate_latest_summaries(
         raise HTTPException(
             status_code=500,
             detail=f"Error generating article summaries: {str(e)}"
+        )
+
+@router.post("/latest-summaries")
+async def generate_latest_summaries_by_sections(
+    source: str,
+    fetch_limit: Optional[int] = 30,
+    summary_limit: Optional[int] = 20,
+    db: Session = Depends(get_session)
+) -> LatestSummariesResponse:
+    """
+    Get and generate latest article summaries by sections for a specific source
+    
+    Args:
+        source: Article source type. Must be one of:
+               - "TW_Stock_Summary": Taiwan stock market news
+               - "US_Stock_Summary": US stock market news
+               - "Hot_News_Summary": Hot topics and trending news
+        fetch_limit: Maximum number of articles to fetch from database (default: 30)
+        summary_limit: Number of articles to include in summary (default: 20)
+        db: Database session
+        
+    Returns:
+        LatestSummariesResponse: Response containing summary and related articles
+        
+    Raises:
+        HTTPException(400): If source is not one of the allowed values
+        HTTPException(500): If error occurs during summary generation
+    """
+    # Validate source
+    allowed_sources = ["TW_Stock_Summary", "US_Stock_Summary", "Hot_News_Summary"]
+    if source not in allowed_sources:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid source. Allowed values are: {', '.join(allowed_sources)}"
+        )
+
+    try:
+        summary_service = SummaryService()
+        latest_summary, selected_articles = await summary_service.generate_category_summary_by_sections(
+            db=db,
+            source=source,
+            fetch_limit=fetch_limit,
+            summary_limit=summary_limit
+        )
+        
+        if not latest_summary:
+            return LatestSummariesResponse(
+                message="No articles found",
+                source=source,
+                count=0,
+                articles=[]
+            )
+            
+        return LatestSummariesResponse(
+            message="Successfully generated latest summaries by sections",
+            source=source,
+            count=len(selected_articles),
+            articles=[
+                ProcessedArticleResponse.from_orm(article)
+                for article in selected_articles
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Error generating article summaries by sections: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating article summaries by sections: {str(e)}"
+        )
+
+@router.post("/process-hot-news-pending", response_model=ProcessPendingResponse)
+async def process_hot_news_pending(
+    limit: Optional[int] = 150,
+    db: Session = Depends(get_session)
+) -> ProcessPendingResponse:
+    """
+    處理待處理的熱門新聞文章
+    
+    Args:
+        limit: 最大處理文章數量，預設為 150
+        db: 資料庫連線
+        
+    Returns:
+        ProcessPendingResponse: 處理結果，包含：
+            - 處理訊息
+            - 待處理文章總數
+            - 本次處理數量
+            - 處理完成的文章列表
+    """
+    try:
+        article_service = ArticleService()
+        processed_articles, processed_count, total_pending = (
+            await article_service.process_hot_news_articles(db, limit)
+        )
+        
+        return ProcessPendingResponse(
+            message=f"成功處理 {processed_count} 篇熱門新聞，還有 {total_pending - processed_count} 篇待處理",
+            total_pending=total_pending,
+            processed_count=processed_count,
+            processed_articles=[
+                ProcessedArticleResponse.from_orm(article)
+                for article in processed_articles
+            ]
+        )
+    except Exception as e:
+        logger.error(f"處理熱門新聞時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"處理熱門新聞時發生錯誤: {str(e)}"
         )

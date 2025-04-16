@@ -9,8 +9,9 @@ import logging
 
 from .base import BaseSummaryGenerator
 from app.models.article import RawArticle, LatestSummary
-from .prompts.category import get_system_prompt
+from .prompts.category import get_system_prompt, get_system_prompt_paragraph
 from .prompts.title import TITLE_SYSTEM_PROMPT
+from .prompts.summary_inspection import get_system_prompt as get_summary_inspection_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -78,158 +79,6 @@ class CategorySummaryGenerator(BaseSummaryGenerator):
             logger.error(f"Error generating category summary: {str(e)}")
             raise ValueError(f"生成摘要失敗: {str(e)}")
 
-    # async def process_category_summary(
-    #     self,
-    #     db,
-    #     source_type: str,
-    #     fetch_limit: int = 30,
-    #     process_limit: int = 20
-    # ) -> LatestSummary:
-    #     """
-    #     Generate category summary from latest articles
-        
-    #     Args:
-    #         db: Database session
-    #         source_type: Type of news source
-    #         fetch_limit: Number of latest articles to fetch
-    #         process_limit: Number of articles to include in summary
-            
-    #     Returns:
-    #         LatestSummary: Generated category summary
-    #     """
-    #     if source_type not in self.ALLOWED_SOURCES:
-    #         raise ValueError(f"Invalid source type: {source_type}")
-
-    #     # Fetch latest articles
-    #     articles = await self._fetch_latest_articles(db, source_type, fetch_limit)
-    #     if not articles:
-    #         return None
-
-    #     # Select articles for processing
-    #     selected_articles = self._select_articles_for_summary(articles, process_limit)
-        
-    #     # Generate summary
-    #     combined_content = self._prepare_articles_content(selected_articles)
-    #     summary = await self.generate_summary(selected_articles, source_type)
-        
-    #     # Create or update summary
-    #     return await self._create_or_update_latest_summary(
-    #         db, source_type, summary, selected_articles
-    #     )
-
-    # async def _fetch_latest_articles(
-    #     self, 
-    #     db, 
-    #     source_type: str, 
-    #     limit: int
-    # ) -> List[RawArticle]:
-    #     """
-    #     Fetch latest articles for a category
-        
-    #     Args:
-    #         db: Database session
-    #         source_type: Type of news source
-    #         limit: Number of articles to fetch
-            
-    #     Returns:
-    #         List[RawArticle]: List of fetched articles
-    #     """
-    #     statement = (
-    #         select(RawArticle)
-    #         .where(RawArticle.source == source_type)
-    #         .order_by(RawArticle.pub_date.desc())
-    #         .limit(limit)
-    #     )
-    #     return (await db.execute(statement)).scalars().all()
-
-    # def _select_articles_for_summary(
-    #     self, 
-    #     articles: List[RawArticle], 
-    #     limit: int
-    # ) -> List[RawArticle]:
-    #     """
-    #     Select articles for summary generation
-        
-    #     Args:
-    #         articles: List of articles to select from
-    #         limit: Number of articles to select
-            
-    #     Returns:
-    #         List[RawArticle]: Selected articles
-    #     """
-    #     # TODO: Implement more sophisticated selection logic
-    #     return articles[:limit]
-
-    # def _prepare_articles_content(self, articles: List[RawArticle]) -> str:
-    #     """
-    #     Prepare articles content for summary generation
-        
-    #     Args:
-    #         articles: List of articles to prepare
-            
-    #     Returns:
-    #         str: Combined articles content
-    #     """
-    #     article_texts = []
-    #     for article in articles:
-    #         article_texts.append(f"標題：{article.title}\n內容：{article.news_content}\n")
-    #     return "\n---\n".join(article_texts)
-
-    # async def _create_or_update_latest_summary(
-    #     self,
-    #     db,
-    #     source_type: str,
-    #     summary: str,
-    #     articles: List[RawArticle]
-    # ) -> LatestSummary:
-    #     """
-    #     Create or update latest summary
-        
-    #     Args:
-    #         db: Database session
-    #         source_type: Type of news source
-    #         summary: Generated summary
-    #         articles: List of related articles
-            
-    #     Returns:
-    #         LatestSummary: Created or updated summary
-    #     """
-    #     # Prepare related articles list
-    #     related = [
-    #         {
-    #             "newsId": str(article.news_id),
-    #             "title": article.title
-    #         }
-    #         for article in articles
-    #     ]
-        
-    #     # Check if summary exists
-    #     existing = await db.execute(
-    #         select(LatestSummary)
-    #         .where(LatestSummary.source == source_type)
-    #     )
-    #     existing = existing.first()
-        
-    #     if existing:
-    #         # Update existing summary
-    #         existing = existing[0]
-    #         existing.summary = summary
-    #         existing.title = self.SOURCE_TITLE_MAPPING[source_type]
-    #         existing.related = related
-    #         existing.updated_at = datetime.utcnow()
-    #         latest_summary = existing
-    #     else:
-    #         # Create new summary
-    #         latest_summary = LatestSummary(
-    #             source=source_type,
-    #             title=self.SOURCE_TITLE_MAPPING[source_type],
-    #             summary=summary,
-    #             related=related
-    #         )
-    #         db.add(latest_summary)
-            
-    #     await db.commit()
-    #     return latest_summary
 
     async def generate_title(self, content: str, source_type: str) -> str:
         """
@@ -267,3 +116,92 @@ class CategorySummaryGenerator(BaseSummaryGenerator):
         except Exception as e:
             logger.error(f"Error generating category title: {str(e)}")
             raise ValueError(f"生成標題失敗: {str(e)}")  # 保持與 generate_summary 一致的錯誤處理方式
+
+    async def generate_paragraph(
+        self,
+        content: str,
+        begin_idx: int,
+        end_idx: int,
+        source_type: str,
+        paragraph_type: str = "highlight"
+    ) -> str:
+        """
+        生成單個段落的摘要
+        
+        Args:
+            content: 要摘要的文章內容
+            begin_idx: 引用編號的起始值
+            end_idx: 引用編號的結束值
+            source_type: 新聞來源類型
+            paragraph_type: 段落類型 (default: "highlight")
+            
+        Returns:
+            str: 生成的段落摘要
+        """
+        try:
+            logger.info(f"Generating {paragraph_type} paragraph for articles {begin_idx}-{end_idx}")
+            logger.info(f"Input content length: {len(content)} characters")
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": get_system_prompt_paragraph(
+                        source_type=source_type,
+                        begin_idx=begin_idx,
+                        end_idx=end_idx,
+                        paragraph_type=paragraph_type
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
+            
+            response = await self.ai_client.get_completion(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4000
+            )
+            
+            return response["choices"][0]["message"]["content"].strip()
+            
+        except Exception as e:
+            logger.error(f"Error generating paragraph: {str(e)}")
+            raise ValueError(f"生成段落失敗: {str(e)}")
+
+    async def summary_inspection(
+        self,
+        summary_html: str,
+    ) -> str:
+        """
+        對已生成的 summary 進行最後檢查與結語追加
+
+        Args:
+            summary_html: 已生成的 summary HTML 內容
+            source_type: 新聞來源類型
+
+        Returns:
+            str: 經過檢查與追加結語後的 summary
+        """
+        try:
+            logger.info("開始進行 summary_inspection 檢查")
+            messages = [
+                {
+                    "role": "system",
+                    "content": get_summary_inspection_prompt()
+                },
+                {
+                    "role": "user",
+                    "content": summary_html
+                }
+            ]
+            response = await self.ai_client.get_completion(
+                messages=messages,
+                temperature=0.4,
+                max_tokens=4000
+            )
+            return response["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.error(f"summary_inspection 發生錯誤: {str(e)}")
+            raise ValueError(f"summary_inspection 失敗: {str(e)}")
