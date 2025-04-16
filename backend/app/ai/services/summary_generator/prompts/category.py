@@ -40,4 +40,62 @@ def get_user_prompt(articles: List[dict]) -> str:
     return "請分析並摘要以下新聞文章：\n\n" + "\n".join(formatted_articles)
 
 def get_assistant_message() -> str:
-    return "我將創建一個流暢的摘要段落，並使用文章原始的 news_id 作為引用標記。" 
+    return "  news_id 作為引用標記。"
+
+def get_system_prompt_paragraph(
+    source_type: str,
+    begin_idx: int,
+    end_idx: int,
+    paragraph_type: str = "highlight"  # 可以是 "highlight" 或 "others"
+) -> str:
+    # 根據 begin_idx 決定是否加入外資買賣超規則
+    task_requirements = """任務要求：
+1. 以專業財經記者的角度，將多篇新聞整合成一篇流暢且具有深度的分析報導
+2. 重點放在趨勢分析和市場洞察，而不是簡單的新聞陳述
+3. 確保內容的專業性和可讀性，使用恰當的財經專業用語
+4. 嚴格遵守單一段落格式，不論內容多寡都不得分段"""
+
+    if begin_idx == 0:
+        task_requirements = """任務要求：
+1. 如果新聞中包含台股外資大盤買賣超的訊息，必須放在報導的開頭段落
+2. 以專業財經記者的角度，將多篇新聞整合成一篇流暢且具有深度的分析報導
+3. 重點放在趨勢分析和市場洞察，而不是簡單的新聞陳述
+4. 確保內容的專業性和可讀性，使用恰當的財經專業用語
+5. 嚴格遵守單一段落格式，不論內容多寡都不得分段"""
+
+    return f"""你是一位資深的{source_type}財經媒體總編輯，擁有豐富的財經新聞撰寫和編輯經驗。請為提供的新聞創建一個段落摘要：
+
+{task_requirements}
+
+格式規範（嚴格遵守）：
+1. 輸出必須是以下格式，不得有任何變化：
+<div class="{paragraph_type}">
+[單一段落內容，不得包含空行或分段，字數必須在300-500個繁體中文字之間]
+</div>
+
+2. 必須符合：
+- 內容必須包含400-500個繁體中文字
+- 內容必須深入分析並整合所有提供的新聞
+- 具備起承轉合
+- 確保敘述流暢，不可重複敘述
+- 保持專業性和可讀性
+- 符合第5項範例格式
+- 引用文章格式為：[{begin_idx}] 到 [{end_idx}] 連續升冪
+
+3. 絕對禁止：
+- 在段落內插入引用標記
+- 使用空行或換行分隔內容
+- 創建多個子段落
+- 跳號或亂序引用文章
+
+4. 引用格式示例：
+- 正確：<sup><a href="url1">[1]</a><a href="url2">[2]</a><a href="url3">[3]</a></sup>
+- 錯誤：<sup><a href="url1">[1]</a></sup> ... <sup><a href="url2">[2]</a></sup>
+- 錯誤：<sup><a href="url1">[1]</a><a href="url3">[3]</a><a href="url2">[2]</a></sup>
+
+5. 範例格式：
+<div class="{paragraph_type}">
+外資今日大舉買超台股達 200 億元，主要加碼電子、金融等權值股，展現對台股後市的強烈信心。在外資資金推動下，台積電等半導體龍頭股表現亮眼，帶動整體電子產業全面上揚。值得注意的是，AI相關產業供應鏈也呈現穩定發展態勢，顯示台股正受惠於全球科技產業的結構性成長。隨著全球資金持續流入亞洲市場，台股成為外資布局的重點區域之一，特別是在電子科技及金融產業方面展現強勁動能。市場分析師指出，當前台股的投資價值逐漸浮現，尤其是在科技創新和產業升級的推動下，台灣企業的國際競爭力持續提升。此外，政府積極推動產業轉型和創新發展，為台股帶來更多成長動能，預期未來將持續吸引國際資金關注。 <sup><a href="https://news.cnyes.com/news/id/5286" target="_blank">[{begin_idx}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5287" target="_blank">[{begin_idx+1}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5288" target="_blank">[{end_idx}]</a></sup>
+</div>""" 
+
+# <sup>[所有引用必須集中在這裡，且必須是從 {begin_idx} 到 {end_idx} 的連續數字]</sup>

@@ -270,3 +270,160 @@ class SummaryService:
         except Exception as e:
             logger.error(f"保存摘要時發生錯誤: {str(e)}")
             raise 
+
+    def select_articles_by_sections(
+        self,
+        articles: List[ProcessedArticle],
+        source: str
+    ) -> List[List[ProcessedArticle]]:
+        """
+        將文章依照不同段落分組選擇
+        
+        Args:
+            articles: 候選文章列表
+            source: 來源類型 (TW_Stock_Summary etc.)
+            
+        Returns:
+            List[List[ProcessedArticle]]: 分段後的文章列表，每個子列表代表一個段落的文章
+        """
+        logger.info(f"開始分段選擇文章 - 來源: {source}, 候選文章數量: {len(articles)}")
+        
+        # 轉換來源類型
+        selector_type = self.SOURCE_TYPE_MAPPING.get(source)
+        if not selector_type:
+            logger.error(f"未知的來源類型: {source}")
+            raise ValueError(f"Unknown source type: {source}")
+        
+        logger.info(f"來源類型映射: {source} -> {selector_type}")
+        
+        # 獲取對應的選擇器
+        try:
+            selector = article_selector_service.get_selector(selector_type)
+            logger.info(f"成功獲取選擇器: {selector.__class__.__name__}")
+        except Exception as e:
+            logger.error(f"獲取選擇器失敗: {str(e)}")
+            raise
+        
+        # 使用選擇器選擇文章並分段
+        try:
+            # 先選出所有文章
+            sectioned_articles = selector.select_articles_by_sections(
+                articles
+            )
+            
+            # 檢查返回值
+            if sectioned_articles is None:
+                logger.warning("選擇器返回了空值，使用預設分組")
+                # 如果沒有返回值，創建一個預設的分組（全部文章放在一個段落）
+                return [articles]
+            
+            # 記錄分段結果
+            logger.info(f"文章分段完成，共 {len(sectioned_articles)} 個段落")
+            for i, section in enumerate(sectioned_articles, 1):
+                logger.info(f"第 {i} 段包含 {len(section)} 篇文章")
+            
+            return sectioned_articles
+            
+        except Exception as e:
+            logger.error(f"文章分段選擇過程發生錯誤: {str(e)}")
+            raise 
+
+
+    async def generate_category_summary_by_sections(
+        self,
+        db,
+        source: str,
+        fetch_limit: int = 30,
+        summary_limit: int = 20
+    ) -> Tuple[LatestSummary, List[ProcessedArticle]]:
+        """
+        Generate category summary by sections
+        """
+        try:
+            # 1. Get latest articles
+            latest_articles = await self.get_latest_articles_by_source(
+                db, source, fetch_limit
+            )
+            if not latest_articles:
+                logger.warning(f"未找到來源為 {source} 的文章")
+                return None, []
+
+            # 2. Select articles by sections
+            sectioned_articles = self.select_articles_by_sections(
+                articles=latest_articles,
+                source=source
+            )
+            
+            # 組合所有段落的文章成一個列表
+            selected_articles = []
+            for section in sectioned_articles:
+                selected_articles.extend(section)
+            
+            # 3. Generate summaries for each section
+            summaries = []
+            start_idx = 1
+            
+            for section_idx, section_articles in enumerate(sectioned_articles, 1):
+                section_content = self.prepare_content_for_summary(section_articles)
+                end_idx = start_idx + len(section_articles) - 1
+                
+                paragraph_type = "highlight" if section_idx == 1 else "others"
+                section_summary = await self.category_generator.generate_paragraph(
+                    content=section_content,
+                    begin_idx=start_idx,
+                    end_idx=end_idx,
+                    source_type=source,
+                    paragraph_type=paragraph_type
+                )
+                
+                summaries.append(section_summary)
+                start_idx = end_idx + 1
+            
+            # 組合完整摘要
+            full_summary = (
+                '<div class="summary-content">' +
+                '<br>'.join(summaries) +
+                '</div>' +
+                '<p class="signature">Powered by Yushan.AI</p>'
+            )
+
+            # 新增：呼叫 summary_inspection 並加在 full_summary 後面
+            try:
+                inspected_summary = await self.category_generator.summary_inspection(
+                    summary_html=full_summary
+                )
+            except Exception as e:
+                logger.error(f"summary_inspection 發生錯誤: {str(e)}")
+                # 若檢查失敗，仍回傳原本的 full_summary
+
+            # Generate title
+            title = await self.category_generator.generate_title(
+                content=inspected_summary,
+                source_type=source
+            )
+            
+            # Create LatestSummary
+            current_time = datetime.now(timezone.utc)
+            latest_summary = LatestSummary(
+                source=source,
+                title=title,
+                summary=inspected_summary,
+                related=[
+                    {
+                        "newsId": str(article.news_id),
+                        "title": article.title
+                    }
+                    for article in selected_articles
+                ],
+                created_at=current_time,
+                updated_at=current_time
+            )
+            
+            db.add(latest_summary)
+            await db.commit()
+            
+            return latest_summary, selected_articles
+            
+        except Exception as e:
+            logger.error(f"生成分段摘要時發生錯誤: {str(e)}")
+            raise 

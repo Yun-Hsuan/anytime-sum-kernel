@@ -43,6 +43,9 @@ class TWStockSelector(ArticleSelector):
         '和泰車': '2207'
     }
     
+    # 台股特有的設定
+    SECTION_LIMITS = [5, 10]  # 第一段5篇，第二段15篇
+    
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
         判斷文章是否與市值前30大台股相關
@@ -79,7 +82,7 @@ class TWStockSelector(ArticleSelector):
         self, 
         articles: List[ProcessedArticle],
         select_limit: int = 20,
-        top30_stock_limit: int = 7,
+        top30_stock_limit: int = 5,
     ) -> Tuple[List[ProcessedArticle], int, int]:
         """
         選擇台股相關新聞
@@ -141,3 +144,70 @@ class TWStockSelector(ArticleSelector):
         total_count = len(selected)
         
         return selected, highlight_count, total_count 
+
+    def select_articles_by_sections(
+        self, 
+        articles: List[ProcessedArticle]
+    ) -> List[List[ProcessedArticle]]:
+        """
+        將文章依照不同段落分組選擇
+        
+        Args:
+            articles: 要篩選的文章列表
+            section_limits: 每個段落的文章數量限制列表
+            
+        Returns:
+            List[List[ProcessedArticle]]: 分段後的文章列表，每個子列表代表一個段落的文章
+        """
+        logger.info(f"開始分段篩選台股新聞，輸入文章數量: {len(articles)}")
+        
+        # 1. 先按時間排序
+        articles.sort(key=lambda x: x.published_at, reverse=True)
+        
+        # 2. 找出所有 top30 相關的文章
+        top30_stock_articles = [
+            article for article in articles
+            if self._is_top30_stock(article)
+        ]
+        
+        # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
+        first_section = top30_stock_articles[:self.SECTION_LIMITS[0]]
+        
+        # 新增：找出最新的外資買賣超文章並放到第一位
+        foreign_investment_article = next(
+            (article for article in articles 
+             if article.source == "TW_Stock_Summary" and article.tags 
+             and "外資台股大盤買賣超" in article.tags),
+            None
+        )
+
+        print(foreign_investment_article)
+
+        if foreign_investment_article and first_section:
+            first_section.insert(0, foreign_investment_article)
+            first_section = first_section[:self.SECTION_LIMITS[0]]  # 確保不超過限制
+        
+        # 3. 找出非第一段的文章，按時間排序
+        used_ids = {article.news_id for article in first_section}
+        remaining_articles = [
+            article for article in articles 
+            if article.news_id not in used_ids
+        ]
+        
+        # 第二段：剩餘文章，數量為總限制減去第一段的數量
+        total_limit = self.SECTION_LIMITS[0] + self.SECTION_LIMITS[1]
+        second_section_limit = total_limit - len(first_section)
+        second_section = remaining_articles[:second_section_limit]
+        
+        sectioned_articles = [first_section, second_section]
+        
+        # 記錄日誌
+        logger.info(f"第一段（Top30相關）: 選中 {len(first_section)} 篇文章")
+        for idx, article in enumerate(first_section, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        
+        logger.info(f"第二段（時間排序）: 選中 {len(second_section)} 篇文章")
+        for idx, article in enumerate(second_section, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        
+        return sectioned_articles 
