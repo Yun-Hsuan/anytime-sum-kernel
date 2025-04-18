@@ -48,6 +48,9 @@ def get_system_prompt_paragraph(
     end_idx: int,
     paragraph_type: str = "highlight"  # 可以是 "highlight" 或 "others"
 ) -> str:
+    # 根據文章數量決定字數限制
+    word_limit = "200" if (end_idx - begin_idx + 1) < 3 else "300"
+    
     # 根據 begin_idx 決定是否加入外資買賣超規則
     task_requirements = """任務要求：
 1. 以專業財經記者的角度，將多篇新聞整合成一篇流暢且具有深度的分析報導
@@ -70,15 +73,15 @@ def get_system_prompt_paragraph(
 格式規範（嚴格遵守）：
 1. 輸出必須是以下格式，不得有任何變化：
 <div class="{paragraph_type}">
-[單一段落內容，不得包含空行或分段，字數必須在300-500個繁體中文字之間]
+[單一段落內容，不得包含空行或分段，字數絕對少於{word_limit}個繁體中文字]
 </div>
 
 2. 必須符合：
-- 內容必須包含400-500個繁體中文字
+- 內容絕對少於{word_limit}個繁體中文字
 - 內容必須深入分析並整合所有提供的新聞
 - 具備起承轉合
 - 確保敘述流暢，不可重複敘述
-- 保持專業性和可讀性
+- 保持新聞專業性和可讀性
 - 符合第5項範例格式
 - 引用文章格式為：[{begin_idx}] 到 [{end_idx}] 連續升冪
 

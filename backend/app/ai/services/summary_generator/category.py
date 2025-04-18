@@ -160,7 +160,7 @@ class CategorySummaryGenerator(BaseSummaryGenerator):
             
             response = await self.ai_client.get_completion(
                 messages=messages,
-                temperature=0.3,
+                temperature=0.1,
                 max_tokens=4000
             )
             

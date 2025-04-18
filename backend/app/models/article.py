@@ -90,19 +90,19 @@ class ProcessedArticle(SQLModel, table=True):
     
     # Basic Information
     title: str = Field(index=True)
-    content: str
+    content: str  # 這裡 content 是必填欄位，不能為 null
     summary: Optional[str] = None
     
     # Metadata
-    source: str = Field(index=True)  # Source type for summary
-    category_id: int = Field(index=True)
+    source: str = Field(index=True)
+    category_id: Optional[int] = None
     category_name: str = Field(index=True)
     author: Optional[str] = None
     published_at: datetime = Field(index=True)
     
     # Classification Tags
-    stocks: List[str] = Field(default=[], sa_type=JSON)     # Related stock codes
-    tags: List[str] = Field(default=[], sa_type=JSON)       # Tags
+    stocks: List[str] = Field(default=[], sa_type=JSON)
+    tags: List[str] = Field(default=[], sa_type=JSON)
     
     # Image Information
     image_url: Optional[str] = None
@@ -112,8 +112,7 @@ class ProcessedArticle(SQLModel, table=True):
     # System Information
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    processed_data: Dict = Field(default={}, sa_type=JSON)  # Processed data
+    processed_data: Dict = Field(default={}, sa_type=JSON)
     
     class Config:
         schema_extra = {

@@ -10,7 +10,7 @@ class HeadlineSelector(ArticleSelector):
     """頭條新聞選擇器"""
     
     # 定義分段限制
-    SECTION_LIMITS = [5, 5, 10]  # 第一段5篇，第二段5篇，第三段10篇
+    SECTION_LIMITS = [4, 4, 7]  # 第一段5篇，第二段5篇，第三段10篇
     
     # 定義宏觀經濟相關標籤
     MACRO_TAGS = ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"]
@@ -283,19 +283,48 @@ class HeadlineSelector(ArticleSelector):
         remaining_articles.sort(key=lambda x: x.published_at, reverse=True)
         third_section = remaining_articles[:remaining_limit]
         
-        sectioned_articles = [first_section, second_section, third_section]
-        
+        # first_section 分成兩半
+        first_half = len(first_section) // 2
+        first_section_part1 = first_section[:first_half]
+        first_section_part2 = first_section[first_half:]
+
+        # second_section 分成兩半
+        second_half = len(second_section) // 2
+        second_section_part1 = second_section[:second_half]
+        second_section_part2 = second_section[second_half:]
+
+        # third_section 分成三份
+        third_base_length = len(third_section) // 3
+        third_section_part1 = third_section[:third_base_length]
+        third_section_part2 = third_section[third_base_length:third_base_length*2]
+        third_section_part3 = third_section[third_base_length*2:]  # 自動包含剩餘的部分
+
+        # 初始化空的 sectioned_articles
+        sectioned_articles = []
+
+        # 檢查並加入 first_section 的兩個部分
+        if len(first_section_part1) > 0:
+            sectioned_articles.append(first_section_part1)
+        if len(first_section_part2) > 0:
+            sectioned_articles.append(first_section_part2)
+
+        # 檢查並加入 second_section 的兩個部分
+        if len(second_section_part1) > 0:
+            sectioned_articles.append(second_section_part1)
+        if len(second_section_part2) > 0:
+            sectioned_articles.append(second_section_part2)
+
+        # 檢查並加入 third_section 的三個部分
+        if len(third_section_part1) > 0:
+            sectioned_articles.append(third_section_part1)
+        if len(third_section_part2) > 0:
+            sectioned_articles.append(third_section_part2)
+        if len(third_section_part3) > 0:
+            sectioned_articles.append(third_section_part3)
+
         # 記錄日誌
-        logger.info(f"第一段（總經相關）: 選中 {len(first_section)} 篇文章")
-        for idx, article in enumerate(first_section, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-        
-        logger.info(f"第二段（重要公司）: 選中 {len(second_section)} 篇文章")
-        for idx, article in enumerate(second_section, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-        
-        logger.info(f"第三段（其他最新）: 選中 {len(third_section)} 篇文章")
-        for idx, article in enumerate(third_section, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        logger.info(f"總共分成 {len(sectioned_articles)} 個段落")
+        for idx, section in enumerate(sectioned_articles, 1):
+            logger.info(f"第 {idx} 段: 選中 {len(section)} 篇文章")
         
         return sectioned_articles 

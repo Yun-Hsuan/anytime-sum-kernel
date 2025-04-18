@@ -384,7 +384,7 @@ class SummaryService:
                 '<div class="summary-content">' +
                 '<br>'.join(summaries) +
                 '</div>' +
-                '<p class="signature">Powered by Yushan.AI</p>'
+                '<p class="signature">Powered by <a href="https://www.yushan.ai/" target="_blank">Yushan.AI</a></p>'
             )
 
             # 新增：呼叫 summary_inspection 並加在 full_summary 後面

@@ -44,7 +44,7 @@ class TWStockSelector(ArticleSelector):
     }
     
     # 台股特有的設定
-    SECTION_LIMITS = [5, 10]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [4, 7]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
@@ -199,15 +199,32 @@ class TWStockSelector(ArticleSelector):
         second_section_limit = total_limit - len(first_section)
         second_section = remaining_articles[:second_section_limit]
         
-        sectioned_articles = [first_section, second_section]
-        
+        # 計算每份的基本長度和餘數
+        base_length = len(second_section) // 3
+
+        # 分割 second_section
+        second_section_part1 = second_section[:base_length]
+        second_section_part2 = second_section[base_length:base_length*2]
+        second_section_part3 = second_section[base_length*2:]  # 自動包含剩餘的部分
+
+        # 修改 sectioned_articles 為四個 section
+        sectioned_articles = [first_section, second_section_part1, second_section_part2, second_section_part3]
+
         # 記錄日誌
-        logger.info(f"第一段（Top30相關）: 選中 {len(first_section)} 篇文章")
+        logger.info(f"第一段（重要公司）: 選中 {len(first_section)} 篇文章")
         for idx, article in enumerate(first_section, 1):
             logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-        
-        logger.info(f"第二段（時間排序）: 選中 {len(second_section)} 篇文章")
-        for idx, article in enumerate(second_section, 1):
+
+        logger.info(f"第二段（時間排序-1）: 選中 {len(second_section_part1)} 篇文章")
+        for idx, article in enumerate(second_section_part1, 1):
             logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-        
+
+        logger.info(f"第三段（時間排序-2）: 選中 {len(second_section_part2)} 篇文章")
+        for idx, article in enumerate(second_section_part2, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+
+        logger.info(f"第四段（時間排序-3）: 選中 {len(second_section_part3)} 篇文章")
+        for idx, article in enumerate(second_section_part3, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+
         return sectioned_articles 

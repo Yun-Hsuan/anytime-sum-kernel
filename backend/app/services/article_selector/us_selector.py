@@ -42,7 +42,7 @@ class USStockSelector(ArticleSelector):
         'T-Mobile': 'TMUS'
     }
 
-    SECTION_LIMITS = [5, 10]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [3, 6]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
@@ -185,15 +185,25 @@ class USStockSelector(ArticleSelector):
         second_section_limit = total_limit - first_section_limit
         second_section = remaining_articles[:second_section_limit]
         
-        sectioned_articles = [first_section, second_section]
+        # 將 second_section 切成兩半
+        half = len(second_section) // 2
+        second_section_part1 = second_section[:half]
+        second_section_part2 = second_section[half:]
+
+        # 修改 sectioned_articles 為三個 section
+        sectioned_articles = [first_section, second_section_part1, second_section_part2]
         
         # 記錄日誌
         logger.info(f"第一段（Top30相關）: 選中 {len(first_section)} 篇文章")
         for idx, article in enumerate(first_section, 1):
             logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title} [Top30]")
         
-        logger.info(f"第二段（時間排序）: 選中 {len(second_section)} 篇文章")
-        for idx, article in enumerate(second_section, 1):
+        logger.info(f"第二段（時間排序）: 選中 {len(second_section_part1)} 篇文章")
+        for idx, article in enumerate(second_section_part1, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        
+        logger.info(f"第三段（時間排序）: 選中 {len(second_section_part2)} 篇文章")
+        for idx, article in enumerate(second_section_part2, 1):
             logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
         
         return sectioned_articles 
