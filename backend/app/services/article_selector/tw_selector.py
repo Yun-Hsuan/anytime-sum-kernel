@@ -148,16 +148,18 @@ class TWStockSelector(ArticleSelector):
     def select_articles_by_sections(
         self, 
         articles: List[ProcessedArticle]
-    ) -> List[List[ProcessedArticle]]:
+    ) -> List[List[List[ProcessedArticle]]]:
         """
         將文章依照不同段落分組選擇
         
         Args:
             articles: 要篩選的文章列表
-            section_limits: 每個段落的文章數量限制列表
             
         Returns:
-            List[List[ProcessedArticle]]: 分段後的文章列表，每個子列表代表一個段落的文章
+            List[List[List[ProcessedArticle]]]: 三層結構的文章列表
+                - 第一層：主要段落（重要公司、時間排序）
+                - 第二層：每個主要段落中的子段落
+                - 第三層：每個子段落中的文章
         """
         logger.info(f"開始分段篩選台股新聞，輸入文章數量: {len(articles)}")
         
@@ -181,8 +183,6 @@ class TWStockSelector(ArticleSelector):
             None
         )
 
-        print(foreign_investment_article)
-
         if foreign_investment_article and first_section:
             first_section.insert(0, foreign_investment_article)
             first_section = first_section[:self.SECTION_LIMITS[0]]  # 確保不超過限制
@@ -201,30 +201,43 @@ class TWStockSelector(ArticleSelector):
         
         # 計算每份的基本長度和餘數
         base_length = len(second_section) // 3
-
+        
         # 分割 second_section
         second_section_part1 = second_section[:base_length]
         second_section_part2 = second_section[base_length:base_length*2]
         second_section_part3 = second_section[base_length*2:]  # 自動包含剩餘的部分
 
-        # 修改 sectioned_articles 為四個 section
-        sectioned_articles = [first_section, second_section_part1, second_section_part2, second_section_part3]
+        # 將 first_section 分成兩個子段落
+        first_half = len(first_section) // 2
+        first_section_part1 = first_section[:first_half]
+        first_section_part2 = first_section[first_half:]
+
+        # 建立三層結構
+        sectioned_articles = [
+            # 第一個主要段落：重要公司新聞
+            [
+                section for section in [first_section_part1, first_section_part2]
+                if len(section) > 0
+            ],
+            # 第二個主要段落：時間排序新聞
+            [
+                section for section in [second_section_part1, second_section_part2, second_section_part3]
+                if len(section) > 0
+            ]
+        ]
 
         # 記錄日誌
-        logger.info(f"第一段（重要公司）: 選中 {len(first_section)} 篇文章")
-        for idx, article in enumerate(first_section, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        logger.info("文章分段完成：")
+        logger.info(f"第一個主要段落（重要公司）:")
+        for idx, section in enumerate(sectioned_articles[0], 1):
+            logger.info(f"  子段落 {idx}: 選中 {len(section)} 篇文章")
+            for article_idx, article in enumerate(section, 1):
+                logger.info(f"    文章 {article_idx}: ID={article.news_id}, 標題={article.title}")
 
-        logger.info(f"第二段（時間排序-1）: 選中 {len(second_section_part1)} 篇文章")
-        for idx, article in enumerate(second_section_part1, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-
-        logger.info(f"第三段（時間排序-2）: 選中 {len(second_section_part2)} 篇文章")
-        for idx, article in enumerate(second_section_part2, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
-
-        logger.info(f"第四段（時間排序-3）: 選中 {len(second_section_part3)} 篇文章")
-        for idx, article in enumerate(second_section_part3, 1):
-            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        logger.info(f"第二個主要段落（時間排序）:")
+        for idx, section in enumerate(sectioned_articles[1], 1):
+            logger.info(f"  子段落 {idx}: 選中 {len(section)} 篇文章")
+            for article_idx, article in enumerate(section, 1):
+                logger.info(f"    文章 {article_idx}: ID={article.news_id}, 標題={article.title}")
 
         return sectioned_articles 

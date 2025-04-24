@@ -84,12 +84,19 @@ def get_system_prompt_paragraph(
 - 保持新聞專業性和可讀性
 - 符合第5項範例格式
 - 引用文章格式為：[{begin_idx}] 到 [{end_idx}] 連續升冪
+- 當提到公司時，處理方式有兩種：
+  1. 如果原始文章中有完整的股票連結格式，必須完整保留，例如：
+     台積電 (<a data-ga-click-item="TWS:2330:STOCK:COMMON" data-ga-event-name="Click_Quote" data-ga-section="News_Article_文中行情" data-ga-target="news" href="https://www.cnyes.com/twstock/2330" rel="noopener noreferrer" target="_self">2330-TW</a>)(<a data-ga-click-item="USS:TSM:STOCK:COMMON" data-ga-event-name="Click_Quote" data-ga-section="News_Article_文中行情" data-ga-target="news" href="https://invest.cnyes.com/usstock/detail/TSM" rel="noopener noreferrer" target="_self">TSM-US</a>)
+  2. 如果原始文章中只有股票代碼，則使用簡單格式：公司名稱 (股票代碼)
+     例如：德州儀器 (TXN-US)、聯發科 (2454-TW)
 
 3. 絕對禁止：
 - 在段落內插入引用標記
 - 使用空行或換行分隔內容
 - 創建多個子段落
 - 跳號或亂序引用文章
+- 簡化原始文章中的股票連結格式
+- 更改原始文章中的股票連結格式
 
 4. 引用格式示例：
 - 正確：<sup><a href="url1">[1]</a><a href="url2">[2]</a><a href="url3">[3]</a></sup>
@@ -98,7 +105,7 @@ def get_system_prompt_paragraph(
 
 5. 範例格式：
 <div class="{paragraph_type}">
-外資今日大舉買超台股達 200 億元，主要加碼電子、金融等權值股，展現對台股後市的強烈信心。在外資資金推動下，台積電等半導體龍頭股表現亮眼，帶動整體電子產業全面上揚。值得注意的是，AI相關產業供應鏈也呈現穩定發展態勢，顯示台股正受惠於全球科技產業的結構性成長。隨著全球資金持續流入亞洲市場，台股成為外資布局的重點區域之一，特別是在電子科技及金融產業方面展現強勁動能。市場分析師指出，當前台股的投資價值逐漸浮現，尤其是在科技創新和產業升級的推動下，台灣企業的國際競爭力持續提升。此外，政府積極推動產業轉型和創新發展，為台股帶來更多成長動能，預期未來將持續吸引國際資金關注。 <sup><a href="https://news.cnyes.com/news/id/5286" target="_blank">[{begin_idx}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5287" target="_blank">[{begin_idx+1}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5288" target="_blank">[{end_idx}]</a></sup>
+外資今日大舉買超台股達 200 億元，主要加碼電子、金融等權值股，展現對台股後市的強烈信心。在外資資金推動下，台積電 (<a data-ga-click-item="TWS:2330:STOCK:COMMON" data-ga-event-name="Click_Quote" data-ga-section="News_Article_文中行情" data-ga-target="news" href="https://www.cnyes.com/twstock/2330" rel="noopener noreferrer" target="_self">2330-TW</a>)(<a data-ga-click-item="USS:TSM:STOCK:COMMON" data-ga-event-name="Click_Quote" data-ga-section="News_Article_文中行情" data-ga-target="news" href="https://invest.cnyes.com/usstock/detail/TSM" rel="noopener noreferrer" target="_self">TSM-US</a>) 等半導體龍頭股表現亮眼，帶動整體電子產業全面上揚。值得注意的是，AI 相關產業供應鏈也呈現穩定發展態勢，顯示台股正受惠於全球科技產業的結構性成長。隨著全球資金持續流入亞洲市場，台股成為外資布局的重點區域之一，特別是在電子科技及金融產業方面展現強勁動能。市場分析師指出，當前台股的投資價值逐漸浮現，尤其是在科技創新和產業升級的推動下，台灣企業的國際競爭力持續提升。此外，政府積極推動產業轉型和創新發展，為台股帶來更多成長動能，預期未來將持續吸引國際資金關注。 <sup><a href="https://news.cnyes.com/news/id/5286" target="_blank">[{begin_idx}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5287" target="_blank">[{begin_idx+1}]</a></sup><sup><a href="https://news.cnyes.com/news/id/5288" target="_blank">[{end_idx}]</a></sup>
 </div>""" 
 
 # <sup>[所有引用必須集中在這裡，且必須是從 {begin_idx} 到 {end_idx} 的連續數字]</sup>

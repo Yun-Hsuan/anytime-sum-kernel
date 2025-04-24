@@ -356,28 +356,67 @@ class SummaryService:
             
             # 組合所有段落的文章成一個列表
             selected_articles = []
-            for section in sectioned_articles:
-                selected_articles.extend(section)
+            for main_section in sectioned_articles:
+                for sub_section in main_section:
+                    selected_articles.extend(sub_section)
             
             # 3. Generate summaries for each section
             summaries = []
             start_idx = 1
             
-            for section_idx, section_articles in enumerate(sectioned_articles, 1):
-                section_content = self.prepare_content_for_summary(section_articles)
-                end_idx = start_idx + len(section_articles) - 1
+            # 第一層迴圈：處理主要段落（宏觀、公司、其他）
+            for main_section_idx, main_section in enumerate(sectioned_articles, 1):
+                start_idx_main = start_idx
                 
-                paragraph_type = "highlight" if section_idx == 1 else "others"
-                section_summary = await self.category_generator.generate_paragraph(
-                    content=section_content,
-                    begin_idx=start_idx,
-                    end_idx=end_idx,
-                    source_type=source,
-                    paragraph_type=paragraph_type
-                )
+                # 用來收集這個主要段落的所有小段落摘要
+                main_section_summaries = []
                 
-                summaries.append(section_summary)
-                start_idx = end_idx + 1
+                # 第二層迴圈：處理每個主要段落中的小段落
+                for sub_section_idx, sub_section in enumerate(main_section, 1):
+                    section_content = self.prepare_content_for_summary(sub_section)
+                    end_idx = start_idx + len(sub_section) - 1
+                    
+                    # 決定段落類型：第一個主要段落是 highlight，其他是 others
+                    paragraph_type = "highlight" if main_section_idx == 1 else "others"
+                    
+                    # 生成小段落的摘要
+                    section_summary = await self.category_generator.generate_paragraph(
+                        content=section_content,
+                        begin_idx=start_idx,
+                        end_idx=end_idx,
+                        source_type=source,
+                        paragraph_type=paragraph_type
+                    )
+                    
+                    main_section_summaries.append(section_summary)
+                    start_idx = end_idx + 1  # 更新下一個小段落的起始索引
+                
+                # 將這個主要段落的所有小段落摘要合併
+                if main_section_summaries:
+                    # 合併該主要段落的所有小段落
+                    combined_summary = "\n".join(main_section_summaries)
+                    
+                    # 對合併後的段落進行檢查
+                    try:
+                        inspected_section_summary = await self.category_generator.summary_inspection(
+                            summary_html=combined_summary
+                        )
+                        
+                        # 為這個段落生成標題
+                        section_title = await self.category_generator.generate_title(
+                            content=inspected_section_summary,
+                            source_type=source
+                        )
+                        
+                        # 將標題和摘要組合
+                        formatted_section = f"<h3>{section_title}</h3>\n{inspected_section_summary}"
+                        summaries.append(formatted_section)
+                        
+                        logger.info(f"完成第 {main_section_idx} 個主要段落的摘要生成和檢查，標題：{section_title}")
+                    except Exception as e:
+                        logger.error(f"處理第 {main_section_idx} 個主要段落時發生錯誤: {str(e)}")
+                        # 如果發生錯誤，使用原始的合併摘要
+                        summaries.append(combined_summary)
             
             # 組合完整摘要
             full_summary = (

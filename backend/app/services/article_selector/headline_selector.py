@@ -14,6 +14,8 @@ class HeadlineSelector(ArticleSelector):
     
     # 定義宏觀經濟相關標籤
     MACRO_TAGS = ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"]
+
+    TOP_TAGS = ["top"]
     
     # 定義重要公司列表
     TOP_COMPANIES = {
@@ -163,6 +165,33 @@ class HeadlineSelector(ArticleSelector):
             logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
         
         return selected_articles
+    
+    def _is_top_article(self, article: ProcessedArticle) -> bool:
+        """
+        判斷文章是否為 top 類型
+        
+        Args:
+            article: 要判斷的文章
+            
+        Returns:
+            bool: 是否為 top 類型文章
+        """
+        # 1. 檢查是否為三小時內的文章
+        time_threshold = datetime.now() - timedelta(hours=3)
+        if article.published_at < time_threshold:
+            return False
+        
+        # 2. 檢查文章標籤
+        if hasattr(article, 'tags') and article.tags:
+            # 將標籤轉換為小寫進行比對
+            article_tags = [tag.lower() if isinstance(tag, str) else tag for tag in article.tags]
+            
+            # 檢查是否包含 TOP_TAGS 中的任何標籤
+            if any(tag in article_tags for tag in self.TOP_TAGS):
+                logger.info(f"文章 {article.news_id} 是 top 文章，標題：{article.title}")
+                return True
+        
+        return False 
 
     def select_articles(
         self, 
@@ -230,11 +259,40 @@ class HeadlineSelector(ArticleSelector):
         total_count = len(selected)
         
         return selected, highlight_count, total_count
-
+    
+    def _select_top_articles(
+        self,
+        articles: List[ProcessedArticle]
+    ) -> List[ProcessedArticle]:
+        """
+        選擇所有符合 top 類型的文章
+        
+        Args:
+            articles: 要選擇的文章列表
+            
+        Returns:
+            List[ProcessedArticle]: 選中的文章列表
+        """
+        # 篩選出所有符合 top 條件的文章
+        top_articles = [
+            article for article in articles
+            if self._is_top_article(article)
+        ]
+        
+        # 按發布時間排序（最新的在前）
+        top_articles.sort(key=lambda x: x.published_at, reverse=True)
+        
+        # 記錄選擇結果
+        logger.info(f"選出 {len(top_articles)} 篇 top 文章：")
+        for idx, article in enumerate(top_articles, 1):
+            logger.info(f"  文章 {idx}: ID={article.news_id}, 標題={article.title}")
+        
+        return top_articles 
+    
     def select_articles_by_sections(
         self, 
         articles: List[ProcessedArticle]
-    ) -> List[List[ProcessedArticle]]:
+    ) -> List[List[List[ProcessedArticle]]]:
         """
         將文章依照不同段落分組選擇
         
@@ -242,89 +300,103 @@ class HeadlineSelector(ArticleSelector):
             articles: 要篩選的文章列表
             
         Returns:
-            List[List[ProcessedArticle]]: 分段後的文章列表
-                - 第一段：總經相關（最多5篇）
-                - 第二段：重要公司相關（最多5篇）
-                - 第三段：其他最新文章（補足至20篇）
+            List[List[List[ProcessedArticle]]]: 三層結構：整篇文章 -> 段落 -> 小段落
         """
         logger.info(f"開始分段篩選頭條新聞，輸入文章數量: {len(articles)}")
         
-        # 1. 選出總經相關分數最高的文章作為第一段
-        first_section = self._select_macroeconomics_articles(
-            articles,
-            self.SECTION_LIMITS[0]
-        )
-        
-        # 2. 從剩餘文章中找出重要公司相關的文章作為第二段
-        used_ids = {article.news_id for article in first_section}
-        remaining_for_company = [
-            article for article in articles 
-            if article.news_id not in used_ids
-        ]
-        
-        company_articles = [
-            article for article in remaining_for_company
-            if self._is_important_company(article)
-        ]
-        second_section = company_articles[:self.SECTION_LIMITS[1]]
-        
-        # 3. 用最新文章補足第三段
-        used_ids.update(article.news_id for article in second_section)
-        remaining_articles = [
-            article for article in articles 
-            if article.news_id not in used_ids
-        ]
-        
-        # 計算第三段需要的文章數量
-        total_limit = sum(self.SECTION_LIMITS)  # 20篇
-        remaining_limit = total_limit - len(first_section) - len(second_section)
-        
-        # 按時間排序選擇最新的文章
-        remaining_articles.sort(key=lambda x: x.published_at, reverse=True)
-        third_section = remaining_articles[:remaining_limit]
-        
-        # first_section 分成兩半
-        first_half = len(first_section) // 2
-        first_section_part1 = first_section[:first_half]
-        first_section_part2 = first_section[first_half:]
-
-        # second_section 分成兩半
-        second_half = len(second_section) // 2
-        second_section_part1 = second_section[:second_half]
-        second_section_part2 = second_section[second_half:]
-
-        # third_section 分成三份
-        third_base_length = len(third_section) // 3
-        third_section_part1 = third_section[:third_base_length]
-        third_section_part2 = third_section[third_base_length:third_base_length*2]
-        third_section_part3 = third_section[third_base_length*2:]  # 自動包含剩餘的部分
-
-        # 初始化空的 sectioned_articles
         sectioned_articles = []
-
-        # 檢查並加入 first_section 的兩個部分
-        if len(first_section_part1) > 0:
-            sectioned_articles.append(first_section_part1)
-        if len(first_section_part2) > 0:
-            sectioned_articles.append(first_section_part2)
-
-        # 檢查並加入 second_section 的兩個部分
-        if len(second_section_part1) > 0:
-            sectioned_articles.append(second_section_part1)
-        if len(second_section_part2) > 0:
-            sectioned_articles.append(second_section_part2)
-
-        # 檢查並加入 third_section 的三個部分
-        if len(third_section_part1) > 0:
-            sectioned_articles.append(third_section_part1)
-        if len(third_section_part2) > 0:
-            sectioned_articles.append(third_section_part2)
-        if len(third_section_part3) > 0:
-            sectioned_articles.append(third_section_part3)
-
-        # 記錄日誌
-        logger.info(f"總共分成 {len(sectioned_articles)} 個段落")
-        for idx, section in enumerate(sectioned_articles, 1):
-            logger.info(f"第 {idx} 段: 選中 {len(section)} 篇文章")
+        total_selected = 0
         
-        return sectioned_articles 
+        # 1. 先處理 top 文章（最多14篇）
+        top_articles = self._select_top_articles(articles)[:14]
+        if top_articles:
+            top_main_section = []
+            num_top = len(top_articles)
+            
+            if num_top % 2 == 1 and num_top > 5:  # 奇數且超過5篇
+                # 每段2篇，最後一段3篇
+                for i in range(0, num_top-3, 2):
+                    if top_articles[i:i+2]:
+                        top_main_section.append(top_articles[i:i+2])
+                if top_articles[-3:]:
+                    top_main_section.append(top_articles[-3:])
+            else:  # 偶數或小於等於5篇
+                # 每段2篇
+                for i in range(0, num_top, 2):
+                    if top_articles[i:i+2]:
+                        top_main_section.append(top_articles[i:i+2])
+            
+            if top_main_section:
+                sectioned_articles.append(top_main_section)
+                total_selected = num_top
+                logger.info(f"選出 top 文章 {num_top} 篇，分成 {len(top_main_section)} 個小段落")
+        
+        # 如果 top 文章不足14篇，進入二階段篩選
+        if total_selected < 14:
+            # 2. 總經相關文章
+            used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
+            remaining = [article for article in articles if article.news_id not in used_ids]
+            macro_articles = self._select_macroeconomics_articles(remaining, self.SECTION_LIMITS[0])
+            
+            if macro_articles:
+                macro_main_section = []
+                # 將總經文章分成小段落（每段2篇）
+                for i in range(0, len(macro_articles), 2):
+                    if macro_articles[i:i+2]:
+                        macro_main_section.append(macro_articles[i:i+2])
+                
+                if macro_main_section:
+                    sectioned_articles.append(macro_main_section)
+                    total_selected += len(macro_articles)
+                    logger.info(f"選出總經文章 {len(macro_articles)} 篇，分成 {len(macro_main_section)} 個小段落")
+            
+            # 3. 重要公司相關文章
+            if total_selected < 15:
+                used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
+                remaining = [article for article in articles if article.news_id not in used_ids]
+                company_articles = [article for article in remaining if self._is_important_company(article)]
+                company_articles = company_articles[:self.SECTION_LIMITS[1]]
+                
+                if company_articles:
+                    company_main_section = []
+                    # 將公司文章分成小段落（每段2篇）
+                    for i in range(0, len(company_articles), 2):
+                        if company_articles[i:i+2]:
+                            company_main_section.append(company_articles[i:i+2])
+                    
+                    if company_main_section:
+                        sectioned_articles.append(company_main_section)
+                        total_selected += len(company_articles)
+                        logger.info(f"選出重要公司文章 {len(company_articles)} 篇，分成 {len(company_main_section)} 個小段落")
+            
+            # 4. 最新文章
+            if total_selected < 15:
+                used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
+                remaining = [article for article in articles if article.news_id not in used_ids]
+                remaining.sort(key=lambda x: x.published_at, reverse=True)
+                
+                latest_limit = min(self.SECTION_LIMITS[2], 15 - total_selected)
+                latest_articles = remaining[:latest_limit]
+                
+                if latest_articles:
+                    latest_main_section = []
+                    # 將最新文章分成小段落（每段2篇）
+                    for i in range(0, len(latest_articles), 2):
+                        if latest_articles[i:i+2]:
+                            latest_main_section.append(latest_articles[i:i+2])
+                    
+                    if latest_main_section:
+                        sectioned_articles.append(latest_main_section)
+                        total_selected += len(latest_articles)
+                        logger.info(f"選出最新文章 {len(latest_articles)} 篇，分成 {len(latest_main_section)} 個小段落")
+        
+        # 記錄最終結果
+        logger.info(f"總共選出 {total_selected} 篇文章")
+        logger.info(f"分成 {len(sectioned_articles)} 個主要段落")
+        for main_idx, main_section in enumerate(sectioned_articles, 1):
+            logger.info(f"第 {main_idx} 個主要段落包含 {len(main_section)} 個小段落")
+            for sub_idx, sub_section in enumerate(main_section, 1):
+                logger.info(f"  第 {main_idx}-{sub_idx} 小段落: {len(sub_section)} 篇文章")
+        
+        return sectioned_articles
+
