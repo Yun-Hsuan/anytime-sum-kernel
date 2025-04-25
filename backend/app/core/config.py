@@ -170,6 +170,16 @@ class Settings(BaseSettings):
         )
         return self
 
+    @property
+    def ASYNC_DATABASE_URI(self) -> str:
+        """異步資料庫 URI"""
+        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    
+    @property
+    def DATABASE_URI(self) -> str:
+        """同步資料庫 URI"""
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
 
 print("Initializing Settings...")
 settings = Settings()  # type: ignore

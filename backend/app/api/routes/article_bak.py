@@ -113,6 +113,45 @@ async def get_category_summary(
             detail=f"Error retrieving category summary: {str(e)}"
         )
 
+def process_pending_background(limit: int = 150):
+    """背景處理待處理文章的任務"""
+    try:
+        # 更新任務狀態
+        task_status["process_pending"]["is_running"] = True
+        task_status["process_pending"]["last_run"] = datetime.now()
+        task_status["process_pending"]["error"] = None
+        
+        from app.db.session import get_sync_db
+        from app.services.article_service import ArticleService
+        
+        # 使用同步的資料庫會話
+        db = get_sync_db()
+        try:
+            article_service = ArticleService()
+            processed_articles, processed_count, total_pending = article_service.process_pending_articles_sync(db, limit)
+            
+            result_message = f"處理了 {processed_count} 篇文章，還剩 {total_pending - processed_count} 篇待處理"
+            logger.info(f"背景任務完成：{result_message}")
+            
+            # 更新任務結果
+            task_status["process_pending"]["result"] = {
+                "processed_count": processed_count,
+                "remaining": total_pending - processed_count,
+                "completed_at": datetime.now()
+            }
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        error_message = f"背景處理文章時發生錯誤: {str(e)}"
+        logger.error(error_message)
+        # 記錄錯誤
+        task_status["process_pending"]["error"] = error_message
+    finally:
+        # 標記任務完成
+        task_status["process_pending"]["is_running"] = False
+
 @router.post("/process-pending", response_model=ProcessPendingResponse)
 async def process_pending_articles(
     limit: Optional[int] = 150,
@@ -150,6 +189,11 @@ async def process_pending_articles(
             status_code=500,
             detail=f"Error processing articles: {str(e)}"
         )
+
+@router.get("/process-pending/status")
+async def get_process_pending_status():
+    """獲取文章處理任務的狀態"""
+    return task_status["process_pending"]
 
 @router.post("/latest-summaries-legacy")
 async def generate_latest_summaries(

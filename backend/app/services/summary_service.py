@@ -6,6 +6,7 @@ from typing import List, Tuple
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 import logging
+import asyncio
 
 from app.models.article import ProcessedArticle, LatestSummary
 from app.ai.services.summary_generator.category import CategorySummaryGenerator
@@ -462,6 +463,158 @@ class SummaryService:
             await db.commit()
             
             return latest_summary, selected_articles
+            
+        except Exception as e:
+            logger.error(f"生成分段摘要時發生錯誤: {str(e)}")
+            raise 
+
+    def get_latest_articles_by_source_sync(
+        self,
+        db,
+        source: str,
+        fetch_limit: int = 30
+    ) -> List[ProcessedArticle]:
+        """同步版本的獲取最新文章"""
+        statement = (
+            select(ProcessedArticle)
+            .where(ProcessedArticle.source == source)
+            .order_by(ProcessedArticle.published_at.desc())
+            .limit(fetch_limit)
+        )
+        return db.execute(statement).scalars().all()
+
+    def generate_category_summary_by_sections_sync(
+        self,
+        db,
+        source: str,
+        fetch_limit: int = 30,
+        summary_limit: int = 20
+    ):
+        """同步版本的分類摘要生成"""
+        try:
+            # 1. Get latest articles (使用同步方法)
+            latest_articles = self.get_latest_articles_by_source_sync(
+                db, source, fetch_limit
+            )
+            if not latest_articles:
+                logger.warning(f"未找到來源為 {source} 的文章")
+                return None, []
+
+            # 2. Select articles by sections (這個本來就是同步的)
+            sectioned_articles = self.select_articles_by_sections(
+                articles=latest_articles,
+                source=source
+            )
+            
+            # 組合所有段落的文章成一個列表
+            selected_articles = []
+            for main_section in sectioned_articles:
+                for sub_section in main_section:
+                    selected_articles.extend(sub_section)
+            
+            # 3. Generate summaries for each section
+            summaries = []
+            start_idx = 1
+            
+            # 建立新的事件迴圈來執行異步操作
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # 第一層迴圈：處理主要段落
+                for main_section_idx, main_section in enumerate(sectioned_articles, 1):
+                    main_section_summaries = []
+                    
+                    # 第二層迴圈：處理每個主要段落中的小段落
+                    for sub_section_idx, sub_section in enumerate(main_section, 1):
+                        section_content = self.prepare_content_for_summary(sub_section)
+                        end_idx = start_idx + len(sub_section) - 1
+                        
+                        paragraph_type = "highlight" if main_section_idx == 1 else "others"
+                        
+                        # 在迴圈中執行異步操作
+                        section_summary = loop.run_until_complete(
+                            self.category_generator.generate_paragraph(
+                                content=section_content,
+                                begin_idx=start_idx,
+                                end_idx=end_idx,
+                                source_type=source,
+                                paragraph_type=paragraph_type
+                            )
+                        )
+                        
+                        main_section_summaries.append(section_summary)
+                        start_idx = end_idx + 1
+                    
+                    if main_section_summaries:
+                        combined_summary = "\n".join(main_section_summaries)
+                        
+                        try:
+                            inspected_section_summary = loop.run_until_complete(
+                                self.category_generator.summary_inspection(
+                                    summary_html=combined_summary
+                                )
+                            )
+                            
+                            section_title = loop.run_until_complete(
+                                self.category_generator.generate_title(
+                                    content=inspected_section_summary,
+                                    source_type=source
+                                )
+                            )
+                            
+                            formatted_section = f"<h3>{section_title}</h3>\n{inspected_section_summary}"
+                            summaries.append(formatted_section)
+                            
+                        except Exception as e:
+                            logger.error(f"處理第 {main_section_idx} 個主要段落時發生錯誤: {str(e)}")
+                            summaries.append(combined_summary)
+                
+                # 組合完整摘要
+                full_summary = (
+                    '<div class="summary-content">' +
+                    '<br>'.join(summaries) +
+                    '</div>' +
+                    '<p class="signature">Powered by <a href="https://www.yushan.ai/" target="_blank">Yushan.AI</a></p>'
+                )
+
+                inspected_summary = loop.run_until_complete(
+                    self.category_generator.summary_inspection(
+                        summary_html=full_summary
+                    )
+                )
+
+                title = loop.run_until_complete(
+                    self.category_generator.generate_title(
+                        content=inspected_summary,
+                        source_type=source
+                    )
+                )
+                
+                # Create LatestSummary
+                current_time = datetime.now(timezone.utc)
+                latest_summary = LatestSummary(
+                    source=source,
+                    title=title,
+                    summary=inspected_summary,
+                    related=[
+                        {
+                            "newsId": str(article.news_id),
+                            "title": article.title
+                        }
+                        for article in selected_articles
+                    ],
+                    created_at=current_time,
+                    updated_at=current_time
+                )
+                
+                db.add(latest_summary)
+                db.commit()
+                
+                return latest_summary, selected_articles
+                
+            finally:
+                loop.close()
             
         except Exception as e:
             logger.error(f"生成分段摘要時發生錯誤: {str(e)}")

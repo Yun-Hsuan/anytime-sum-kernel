@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.schema import CreateTable
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 import logging
 
@@ -32,6 +33,18 @@ async_session = async_sessionmaker(
     expire_on_commit=False,
 )
 
+# Create sync engine for background tasks
+sync_engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI).replace("postgresql+asyncpg", "postgresql"),
+    echo=settings.ENVIRONMENT == "local" and settings.DEBUG_SQL,
+)
+
+# Create sync session factory
+sync_session = sessionmaker(
+    sync_engine,
+    expire_on_commit=False,
+)
+
 # Dependency to get async session
 async def get_session():
     async with async_session() as session:
@@ -39,6 +52,14 @@ async def get_session():
             yield session
         finally:
             await session.close()
+
+# Function to get sync session for background tasks
+def get_sync_db():
+    db = sync_session()
+    try:
+        return db
+    finally:
+        db.close()
 
 # Initialize database
 async def init_db(table_name: str = None):
@@ -75,4 +96,5 @@ async def close_db():
     Clean up database connections
     """
     logger.info("Closing database connections")
-    await engine.dispose() 
+    await engine.dispose()
+    sync_engine.dispose() 

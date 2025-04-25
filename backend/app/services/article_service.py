@@ -6,6 +6,7 @@ from typing import List, Tuple
 from sqlmodel import select, func
 import logging
 from datetime import datetime
+import asyncio
 
 from app.models.article import RawArticle, ProcessedArticle
 from app.ai.services.summary_generator.article import SingleArticleSummaryGenerator
@@ -254,4 +255,85 @@ class ArticleService:
         except Exception as e:
             logger.error(f"處理熱門新聞時發生錯誤: {str(e)}")
             await db.rollback()
+            raise 
+
+    def process_pending_articles_sync(self, db, limit: int = 150):
+        """同步版本的處理待處理文章"""
+        try:
+            # 1. 獲取待處理的文章（使用與異步版本相同的邏輯）
+            # 子查詢：已處理的文章 ID
+            processed_subquery = (
+                select(ProcessedArticle.raw_article_id)
+            )
+            
+            # 主查詢：獲取未處理的文章
+            statement = (
+                select(RawArticle)
+                .where(~RawArticle.id.in_(processed_subquery))
+                .order_by(RawArticle.created_at.desc())
+                .limit(limit)
+            )
+            
+            pending_articles = db.execute(statement).scalars().all()
+            total_pending = len(pending_articles)
+
+            processed_articles = []
+            processed_count = 0
+
+            # 建立事件迴圈來執行異步操作
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                for article in pending_articles:
+                    try:
+                        # 使用 run_until_complete 執行異步操作
+                        article_content = f"標題：{article.title}\n內容：{article.news_content}"
+                        summary = loop.run_until_complete(
+                            self.summary_generator.generate_summary(article_content)
+                        )
+                        
+                        # 創建處理後的文章
+                        processed_article = ProcessedArticle(
+                            raw_article_id=article.id,
+                            news_id=article.news_id,
+                            title=article.title,
+                            content=article.news_content,
+                            summary=summary,
+                            source=article.source,
+                            category_id=article.category_id,
+                            category_name=article.category_name,
+                            stocks=article.stock,
+                            tags=article.tags,
+                            published_at=datetime.fromtimestamp(article.pub_date) if article.pub_date else datetime.utcnow(),
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow()
+                        )
+                        
+                        # 添加到資料庫
+                        db.add(processed_article)
+                        
+                        processed_articles.append(processed_article)
+                        processed_count += 1
+                        
+                        # 每處理 10 篇文章就提交一次
+                        if processed_count % 10 == 0:
+                            db.commit()
+                        
+                    except Exception as e:
+                        logger.error(f"處理文章 {article.news_id} 時發生錯誤: {str(e)}")
+                        continue
+                
+                # 提交剩餘的更改
+                if processed_count % 10 != 0:
+                    db.commit()
+                
+            finally:
+                loop.close()
+            
+            return processed_articles, processed_count, total_pending
+            
+        except Exception as e:
+            logger.error(f"同步處理待處理文章時發生錯誤: {str(e)}")
+            db.rollback()
             raise 
