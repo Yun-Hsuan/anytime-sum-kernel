@@ -10,7 +10,7 @@ class HeadlineSelector(ArticleSelector):
     """頭條新聞選擇器"""
     
     # 定義分段限制
-    SECTION_LIMITS = [4, 4, 7]  # 第一段5篇，第二段5篇，第三段10篇
+    SECTION_LIMITS = [7, 7, 0]  # 第一段5篇，第二段5篇，第三段10篇
     
     # 定義宏觀經濟相關標籤
     MACRO_TAGS = ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"]
@@ -368,28 +368,7 @@ class HeadlineSelector(ArticleSelector):
                         sectioned_articles.append(company_main_section)
                         total_selected += len(company_articles)
                         logger.info(f"選出重要公司文章 {len(company_articles)} 篇，分成 {len(company_main_section)} 個小段落")
-            
-            # 4. 最新文章
-            if total_selected < 15:
-                used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
-                remaining = [article for article in articles if article.news_id not in used_ids]
-                remaining.sort(key=lambda x: x.published_at, reverse=True)
-                
-                latest_limit = min(self.SECTION_LIMITS[2], 15 - total_selected)
-                latest_articles = remaining[:latest_limit]
-                
-                if latest_articles:
-                    latest_main_section = []
-                    # 將最新文章分成小段落（每段2篇）
-                    for i in range(0, len(latest_articles), 2):
-                        if latest_articles[i:i+2]:
-                            latest_main_section.append(latest_articles[i:i+2])
                     
-                    if latest_main_section:
-                        sectioned_articles.append(latest_main_section)
-                        total_selected += len(latest_articles)
-                        logger.info(f"選出最新文章 {len(latest_articles)} 篇，分成 {len(latest_main_section)} 個小段落")
-        
         # 記錄最終結果
         logger.info(f"總共選出 {total_selected} 篇文章")
         logger.info(f"分成 {len(sectioned_articles)} 個主要段落")
