@@ -44,7 +44,7 @@ class TWStockSelector(ArticleSelector):
     }
     
     # 台股特有的設定
-    SECTION_LIMITS = [4, 7]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [5, 5]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
@@ -172,10 +172,7 @@ class TWStockSelector(ArticleSelector):
             if self._is_top30_stock(article)
         ]
         
-        # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
-        first_section = top30_stock_articles[:self.SECTION_LIMITS[0]]
-        
-        # 新增：找出最新的外資買賣超文章並放到第一位
+        # 新增：找出最新的外資買賣超文章
         foreign_investment_article = next(
             (article for article in articles 
              if article.source == "TW_Stock_Summary" and article.tags 
@@ -183,9 +180,17 @@ class TWStockSelector(ArticleSelector):
             None
         )
 
-        if foreign_investment_article and first_section:
-            first_section.insert(0, foreign_investment_article)
-            first_section = first_section[:self.SECTION_LIMITS[0]]  # 確保不超過限制
+        # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
+        first_section = []
+        if foreign_investment_article:
+            first_section.append(foreign_investment_article)
+            # 從 top30 文章中選取剩餘的名額，但要排除外資買賣超文章
+            remaining_slots = self.SECTION_LIMITS[0] - 1
+            for article in top30_stock_articles:
+                if article.news_id != foreign_investment_article.news_id and len(first_section) < self.SECTION_LIMITS[0]:
+                    first_section.append(article)
+        else:
+            first_section = top30_stock_articles[:self.SECTION_LIMITS[0]]
         
         # 3. 找出非第一段的文章，按時間排序
         used_ids = {article.news_id for article in first_section}
@@ -226,18 +231,11 @@ class TWStockSelector(ArticleSelector):
             ]
         ]
 
-        # 記錄日誌
-        logger.info("文章分段完成：")
-        logger.info(f"第一個主要段落（重要公司）:")
-        for idx, section in enumerate(sectioned_articles[0], 1):
-            logger.info(f"  子段落 {idx}: 選中 {len(section)} 篇文章")
-            for article_idx, article in enumerate(section, 1):
-                logger.info(f"    文章 {article_idx}: ID={article.news_id}, 標題={article.title}")
-
-        logger.info(f"第二個主要段落（時間排序）:")
-        for idx, section in enumerate(sectioned_articles[1], 1):
-            logger.info(f"  子段落 {idx}: 選中 {len(section)} 篇文章")
-            for article_idx, article in enumerate(section, 1):
-                logger.info(f"    文章 {article_idx}: ID={article.news_id}, 標題={article.title}")
-
+        # 記錄所有選取的文章ID
+        logger.info("所有選取的文章ID:")
+        for main_idx, main_section in enumerate(sectioned_articles, 1):
+            for sub_idx, sub_section in enumerate(main_section, 1):
+                for article in sub_section:
+                    logger.info(f"  - {article.news_id}")
+        
         return sectioned_articles 

@@ -1,5 +1,5 @@
 from datetime import datetime, time
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 import asyncio
 import logging
 from .tasks.base import ScheduledTask
@@ -24,6 +24,15 @@ class SchedulerService:
             self.license_end_datetime: Optional[datetime] = None
             self._scheduler_task: Optional[asyncio.Task] = None
             self._sleep_task: Optional[asyncio.Task] = None
+            self.task_queue: asyncio.Queue = asyncio.Queue()
+            self.worker_tasks: List[asyncio.Task] = []
+            self.max_workers: int = 3
+            self.semaphore: asyncio.Semaphore = asyncio.Semaphore(5)
+            self.metrics: Dict[str, Any] = {
+                'tasks_executed': 0,
+                'tasks_failed': 0,
+                'average_execution_time': 0
+            }
             self.logger = logging.getLogger(__name__)
             self.initialized = True
     
@@ -62,6 +71,11 @@ class SchedulerService:
         self.license_end_datetime = license_end_datetime
         self.service_status = "running"
         
+        # 啟動工作者
+        for _ in range(self.max_workers):
+            worker = asyncio.create_task(self._worker_loop())
+            self.worker_tasks.append(worker)
+        
         # 啟動排程循環
         if self._scheduler_task is None or self._scheduler_task.done():
             self._scheduler_task = asyncio.create_task(self._scheduler_loop())
@@ -70,6 +84,13 @@ class SchedulerService:
     def stop_service(self):
         """停止排程服務"""
         self.service_status = "stopped"
+        # 取消所有工作者任務
+        for worker in self.worker_tasks:
+            if not worker.done():
+                worker.cancel()
+        self.worker_tasks.clear()
+        
+        # 取消排程任務
         if self._scheduler_task and not self._scheduler_task.done():
             self._scheduler_task.cancel()
         self.logger.info("Scheduler service stopped")
@@ -103,37 +124,58 @@ class SchedulerService:
         
         return min(task.interval_minutes for task in self.tasks.values())
 
+    async def _worker_loop(self):
+        """工作者循環"""
+        self.logger.info("Worker loop started")
+        while self.service_status == "running":
+            try:
+                # 從隊列中獲取任務
+                task = await self.task_queue.get()
+                start_time = datetime.now()
+                
+                try:
+                    async with self.semaphore:  # 使用信號量限制並發
+                        await task.execute()
+                        self.metrics['tasks_executed'] += 1
+                except Exception as e:
+                    self.metrics['tasks_failed'] += 1
+                    self.logger.error(f"Task execution failed: {str(e)}")
+                finally:
+                    # 更新執行時間統計
+                    execution_time = (datetime.now() - start_time).total_seconds()
+                    self.metrics['average_execution_time'] = (
+                        self.metrics['average_execution_time'] * (self.metrics['tasks_executed'] - 1) +
+                        execution_time
+                    ) / self.metrics['tasks_executed']
+                    self.task_queue.task_done()
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"Worker loop error: {str(e)}")
+                await asyncio.sleep(1)
+
     async def _scheduler_loop(self):
         """排程主循環"""
         self.logger.info("Scheduler loop started")
         while self.service_status == "running":
             try:
                 current_time = datetime.now().time()
-                self.logger.info(f"Current time: {current_time}")
                 
                 for task_id, task in self.tasks.items():
-                    self.logger.info(f"Checking task: {task_id}")
-                    self.logger.info(f"Task config: enabled={task.enabled}, "
-                                   f"start={task.daily_start_time}, "
-                                   f"end={task.daily_end_time}, "
-                                   f"interval={task.interval_minutes}")
-                    
                     try:
                         should_execute = await self._should_execute_task(task, current_time)
-                        self.logger.info(f"Task {task_id} should execute: {should_execute}")
                         
                         if should_execute:
-                            self.logger.info(f"Executing task: {task_id}")
-                            await task.execute()
-                            self.logger.info(f"Task {task_id} execution completed")
+                            # 將任務加入隊列而不是直接執行
+                            await self.task_queue.put(task)
+                            self.logger.info(f"Task {task_id} queued for execution")
+                            
                     except Exception as e:
-                        self.logger.error(f"Task execution failed: {task_id}, error: {str(e)}")
+                        self.logger.error(f"Error checking task {task_id}: {str(e)}")
 
                 # 使用最小間隔作為檢查頻率
                 check_interval = self._get_min_interval()
-                self.logger.debug(f"Next check in {check_interval} minutes")
-                
-                # 創建可取消的 sleep 任務
                 self._sleep_task = asyncio.create_task(asyncio.sleep(check_interval * 60))
                 try:
                     await self._sleep_task

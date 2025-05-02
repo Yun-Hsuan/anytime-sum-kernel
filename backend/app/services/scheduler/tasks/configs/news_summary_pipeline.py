@@ -21,7 +21,7 @@ def get_news_summary_pipeline_configs() -> Dict[str, Dict[str, Any]]:
             "schedule": {
                 "daily_start_time": "00:00",
                 "daily_end_time": "23:59",
-                "interval_minutes": 10,
+                "interval_minutes": 15,
                 "enabled": True
             }
         }

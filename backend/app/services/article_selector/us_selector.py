@@ -42,7 +42,7 @@ class USStockSelector(ArticleSelector):
         'T-Mobile': 'TMUS'
     }
 
-    SECTION_LIMITS = [3, 6]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [4, 6]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """

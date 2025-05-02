@@ -10,7 +10,7 @@ class HeadlineSelector(ArticleSelector):
     """頭條新聞選擇器"""
     
     # 定義分段限制
-    SECTION_LIMITS = [7, 7, 0]  # 第一段5篇，第二段5篇，第三段10篇
+    SECTION_LIMITS = [8, 7, 0]  # 第一段5篇，第二段5篇，第三段10篇
     
     # 定義宏觀經濟相關標籤
     MACRO_TAGS = ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"]
@@ -306,6 +306,7 @@ class HeadlineSelector(ArticleSelector):
         
         sectioned_articles = []
         total_selected = 0
+        used_ids = set()  # 用於追蹤已選取的文章ID
         
         # 1. 先處理 top 文章（最多14篇）
         top_articles = self._select_top_articles(articles)[:14]
@@ -329,12 +330,13 @@ class HeadlineSelector(ArticleSelector):
             if top_main_section:
                 sectioned_articles.append(top_main_section)
                 total_selected = num_top
+                # 更新已選取的文章ID
+                used_ids.update(article.news_id for subsection in top_main_section for article in subsection)
                 logger.info(f"選出 top 文章 {num_top} 篇，分成 {len(top_main_section)} 個小段落")
         
         # 如果 top 文章不足14篇，進入二階段篩選
         if total_selected < 14:
             # 2. 總經相關文章
-            used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
             remaining = [article for article in articles if article.news_id not in used_ids]
             macro_articles = self._select_macroeconomics_articles(remaining, self.SECTION_LIMITS[0])
             
@@ -348,11 +350,12 @@ class HeadlineSelector(ArticleSelector):
                 if macro_main_section:
                     sectioned_articles.append(macro_main_section)
                     total_selected += len(macro_articles)
+                    # 更新已選取的文章ID
+                    used_ids.update(article.news_id for subsection in macro_main_section for article in subsection)
                     logger.info(f"選出總經文章 {len(macro_articles)} 篇，分成 {len(macro_main_section)} 個小段落")
             
             # 3. 重要公司相關文章
             if total_selected < 15:
-                used_ids = {article.news_id for section in sectioned_articles for subsection in section for article in subsection}
                 remaining = [article for article in articles if article.news_id not in used_ids]
                 company_articles = [article for article in remaining if self._is_important_company(article)]
                 company_articles = company_articles[:self.SECTION_LIMITS[1]]
@@ -367,6 +370,8 @@ class HeadlineSelector(ArticleSelector):
                     if company_main_section:
                         sectioned_articles.append(company_main_section)
                         total_selected += len(company_articles)
+                        # 更新已選取的文章ID
+                        used_ids.update(article.news_id for subsection in company_main_section for article in subsection)
                         logger.info(f"選出重要公司文章 {len(company_articles)} 篇，分成 {len(company_main_section)} 個小段落")
                     
         # 記錄最終結果
@@ -376,6 +381,13 @@ class HeadlineSelector(ArticleSelector):
             logger.info(f"第 {main_idx} 個主要段落包含 {len(main_section)} 個小段落")
             for sub_idx, sub_section in enumerate(main_section, 1):
                 logger.info(f"  第 {main_idx}-{sub_idx} 小段落: {len(sub_section)} 篇文章")
+        
+        # 記錄所有選取的文章ID
+        logger.info("所有選取的文章ID:")
+        for main_idx, main_section in enumerate(sectioned_articles, 1):
+            for sub_idx, sub_section in enumerate(main_section, 1):
+                for article in sub_section:
+                    logger.info(f"  - {article.news_id}")
         
         return sectioned_articles
 
