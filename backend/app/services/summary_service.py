@@ -334,7 +334,7 @@ class SummaryService:
         self,
         db,
         source: str,
-        fetch_limit: int = 30,
+        fetch_limit: int = 50,
         summary_limit: int = 20
     ) -> Tuple[LatestSummary, List[ProcessedArticle]]:
         """
@@ -444,6 +444,13 @@ class SummaryService:
             
             # Create LatestSummary
             current_time = datetime.now(timezone.utc)
+            
+            # 按照文章在摘要中的順序重新排列
+            ordered_articles = []
+            for main_section in sectioned_articles:
+                for sub_section in main_section:
+                    ordered_articles.extend(sub_section)
+            
             latest_summary = LatestSummary(
                 source=source,
                 title=title,
@@ -453,7 +460,7 @@ class SummaryService:
                         "newsId": str(article.news_id),
                         "title": article.title
                     }
-                    for article in selected_articles
+                    for article in ordered_articles
                 ],
                 created_at=current_time,
                 updated_at=current_time
@@ -593,6 +600,13 @@ class SummaryService:
                 
                 # Create LatestSummary
                 current_time = datetime.now(timezone.utc)
+                
+                # 按照文章在摘要中的順序重新排列
+                ordered_articles = []
+                for main_section in sectioned_articles:
+                    for sub_section in main_section:
+                        ordered_articles.extend(sub_section)
+                
                 latest_summary = LatestSummary(
                     source=source,
                     title=title,
@@ -602,7 +616,7 @@ class SummaryService:
                             "newsId": str(article.news_id),
                             "title": article.title
                         }
-                        for article in selected_articles
+                        for article in ordered_articles
                     ],
                     created_at=current_time,
                     updated_at=current_time
