@@ -373,7 +373,31 @@ class HeadlineSelector(ArticleSelector):
                         # 更新已選取的文章ID
                         used_ids.update(article.news_id for subsection in company_main_section for article in subsection)
                         logger.info(f"選出重要公司文章 {len(company_articles)} 篇，分成 {len(company_main_section)} 個小段落")
-                    
+        
+        # 4. 如果文章總數不足15篇，從剩餘文章中選擇最新的文章來補足
+        if total_selected < 15:
+            remaining = [article for article in articles if article.news_id not in used_ids]
+            if remaining:
+                # 按發布時間排序
+                remaining.sort(key=lambda x: x.published_at, reverse=True)
+                # 計算需要補充的文章數量
+                need_more = 15 - total_selected
+                # 選擇最新的文章
+                latest_articles = remaining[:need_more]
+                
+                # 將補充的文章分成小段落（每段2篇）
+                latest_main_section = []
+                for i in range(0, len(latest_articles), 2):
+                    if latest_articles[i:i+2]:
+                        latest_main_section.append(latest_articles[i:i+2])
+                
+                if latest_main_section:
+                    sectioned_articles.append(latest_main_section)
+                    total_selected += len(latest_articles)
+                    # 更新已選取的文章ID
+                    used_ids.update(article.news_id for subsection in latest_main_section for article in subsection)
+                    logger.info(f"補充最新文章 {len(latest_articles)} 篇，分成 {len(latest_main_section)} 個小段落")
+        
         # 記錄最終結果
         logger.info(f"總共選出 {total_selected} 篇文章")
         logger.info(f"分成 {len(sectioned_articles)} 個主要段落")
