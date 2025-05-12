@@ -44,7 +44,7 @@ class TWStockSelector(ArticleSelector):
     }
     
     # 台股特有的設定
-    SECTION_LIMITS = [5, 5]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [0, 10]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
