@@ -398,6 +398,8 @@ class HeadlineSelector(ArticleSelector):
                     used_ids.update(article.news_id for subsection in latest_main_section for article in subsection)
                     logger.info(f"補充最新文章 {len(latest_articles)} 篇，分成 {len(latest_main_section)} 個小段落")
         
+        
+        
         # 記錄最終結果
         logger.info(f"總共選出 {total_selected} 篇文章")
         logger.info(f"分成 {len(sectioned_articles)} 個主要段落")
@@ -413,5 +415,37 @@ class HeadlineSelector(ArticleSelector):
                 for article in sub_section:
                     logger.info(f"  - {article.news_id}")
         
-        return sectioned_articles
+        # 將所有文章合併到第一個段落
+        all_articles = []
+        for main_section in sectioned_articles:
+            for sub_section in main_section:
+                all_articles.extend(sub_section)  # 扁平化成一維列表
+        
+        # 按時間排序並限制數量
+        all_articles.sort(key=lambda x: x.published_at, reverse=True)
+        all_articles = all_articles[:12]
+
+        # 將企業虧損文章移到後面
+        loss_articles = []
+        other_articles = []
+        
+        for article in all_articles:
+            if article.tags and "企業虧損" in article.tags:
+                loss_articles.append(article)
+            else:
+                other_articles.append(article)
+        
+        # 重新組合文章順序：其他文章 + 虧損文章
+        all_articles = other_articles + loss_articles
+        
+        # 將文章分成每組 2 個，最後一組如果是奇數則為 3 個
+        split_articles = []
+        for i in range(0, len(all_articles), 2):
+            if i + 2 < len(all_articles):  # 還有至少 2 篇文章
+                split_articles.append(all_articles[i:i+2])
+            else:  # 最後一組
+                split_articles.append(all_articles[i:])
+        
+        # 返回新的結構：所有文章放在第一個段落中
+        return [split_articles]
 

@@ -277,20 +277,31 @@ class TWStockSelector(ArticleSelector):
         if foreign_investment_article:
             selected_articles.insert(0, foreign_investment_article)
 
-        # 建立三層結構，所有文章放在一個段落中
-        sectioned_articles = [
-            # 只有一個主要段落
-            [
-                # 只有一個子段落
-                selected_articles
-            ]
-        ]
+        # 按時間排序並限制數量
+        all_articles = selected_articles
+        all_articles = all_articles[:8]
 
-        # 記錄所有選取的文章ID
-        logger.info("所有選取的文章ID:")
-        for main_idx, main_section in enumerate(sectioned_articles, 1):
-            for sub_idx, sub_section in enumerate(main_section, 1):
-                for article in sub_section:
-                    logger.info(f"  - {article.news_id}")
+        # 在 all_articles[1:7] 範圍內檢查並移動企業虧損文章
+        middle_articles = all_articles[1:8]
+        loss_articles = []
+        other_articles = []
         
-        return sectioned_articles 
+        for article in middle_articles:
+            if article.tags and "企業虧損" in article.tags:
+                loss_articles.append(article)
+            else:
+                other_articles.append(article)
+        
+        # 重新組合文章順序：第一篇 + 其他文章 + 虧損文章 + 最後一篇
+        all_articles = [all_articles[0]] + other_articles + loss_articles
+        
+        # 將文章分成每組 2 個，最後一組如果是奇數則為 3 個
+        split_articles = []
+        for i in range(0, len(all_articles), 2):
+            if i + 2 < len(all_articles):  # 還有至少 2 篇文章
+                split_articles.append(all_articles[i:i+2])
+            else:  # 最後一組
+                split_articles.append(all_articles[i:])
+        
+        # 返回新的結構：所有文章放在第一個段落中
+        return [split_articles] 
