@@ -44,7 +44,7 @@ class TWStockSelector(ArticleSelector):
     }
     
     # 台股特有的設定
-    SECTION_LIMITS = [0, 10]  # 第一段5篇，第二段15篇
+    SECTION_LIMITS = [0, 8]  # 第一段5篇，第二段15篇
     
     def _is_top30_stock(self, article: ProcessedArticle) -> bool:
         """
@@ -145,6 +145,101 @@ class TWStockSelector(ArticleSelector):
         
         return selected, highlight_count, total_count 
 
+    # def select_articles_by_sections(
+    #     self, 
+    #     articles: List[ProcessedArticle]
+    # ) -> List[List[List[ProcessedArticle]]]:
+    #     """
+    #     將文章依照不同段落分組選擇
+        
+    #     Args:
+    #         articles: 要篩選的文章列表
+            
+    #     Returns:
+    #         List[List[List[ProcessedArticle]]]: 三層結構的文章列表
+    #             - 第一層：主要段落（重要公司、時間排序）
+    #             - 第二層：每個主要段落中的子段落
+    #             - 第三層：每個子段落中的文章
+    #     """
+    #     logger.info(f"開始分段篩選台股新聞，輸入文章數量: {len(articles)}")
+        
+    #     # 1. 先按時間排序
+    #     articles.sort(key=lambda x: x.published_at, reverse=True)
+        
+    #     # 2. 找出所有 top30 相關的文章
+    #     top30_stock_articles = [
+    #         article for article in articles
+    #         if self._is_top30_stock(article)
+    #     ]
+        
+    #     # 新增：找出最新的外資買賣超文章
+    #     foreign_investment_article = next(
+    #         (article for article in articles 
+    #          if article.source == "TW_Stock_Summary" and article.tags 
+    #          and "外資台股大盤買賣超" in article.tags),
+    #         None
+    #     )
+
+    #     # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
+    #     first_section = []
+    #     if foreign_investment_article:
+    #         first_section.append(foreign_investment_article)
+    #         # 從 top30 文章中選取剩餘的名額，但要排除外資買賣超文章
+    #         remaining_slots = self.SECTION_LIMITS[0] - 1
+    #         for article in top30_stock_articles:
+    #             if article.news_id != foreign_investment_article.news_id and len(first_section) < self.SECTION_LIMITS[0]:
+    #                 first_section.append(article)
+    #     else:
+    #         first_section = top30_stock_articles[:self.SECTION_LIMITS[0]]
+        
+    #     # 3. 找出非第一段的文章，按時間排序
+    #     used_ids = {article.news_id for article in first_section}
+    #     remaining_articles = [
+    #         article for article in articles 
+    #         if article.news_id not in used_ids
+    #     ]
+        
+    #     # 第二段：剩餘文章，數量為總限制減去第一段的數量
+    #     total_limit = self.SECTION_LIMITS[0] + self.SECTION_LIMITS[1]
+    #     second_section_limit = total_limit - len(first_section)
+    #     second_section = remaining_articles[:second_section_limit]
+        
+    #     # 計算每份的基本長度和餘數
+    #     base_length = len(second_section) // 3
+        
+    #     # 分割 second_section
+    #     second_section_part1 = second_section[:base_length]
+    #     second_section_part2 = second_section[base_length:base_length*2]
+    #     second_section_part3 = second_section[base_length*2:]  # 自動包含剩餘的部分
+
+    #     # 將 first_section 分成兩個子段落
+    #     first_half = len(first_section) // 2
+    #     first_section_part1 = first_section[:first_half]
+    #     first_section_part2 = first_section[first_half:]
+
+    #     # 建立三層結構
+    #     sectioned_articles = [
+    #         # 第一個主要段落：重要公司新聞
+    #         [
+    #             section for section in [first_section_part1, first_section_part2]
+    #             if len(section) > 0
+    #         ],
+    #         # 第二個主要段落：時間排序新聞
+    #         [
+    #             section for section in [second_section_part1, second_section_part2, second_section_part3]
+    #             if len(section) > 0
+    #         ]
+    #     ]
+
+    #     # 記錄所有選取的文章ID
+    #     logger.info("所有選取的文章ID:")
+    #     for main_idx, main_section in enumerate(sectioned_articles, 1):
+    #         for sub_idx, sub_section in enumerate(main_section, 1):
+    #             for article in sub_section:
+    #                 logger.info(f"  - {article.news_id}")
+        
+    #     return sectioned_articles 
+    
     def select_articles_by_sections(
         self, 
         articles: List[ProcessedArticle]
@@ -166,12 +261,6 @@ class TWStockSelector(ArticleSelector):
         # 1. 先按時間排序
         articles.sort(key=lambda x: x.published_at, reverse=True)
         
-        # 2. 找出所有 top30 相關的文章
-        top30_stock_articles = [
-            article for article in articles
-            if self._is_top30_stock(article)
-        ]
-        
         # 新增：找出最新的外資買賣超文章
         foreign_investment_article = next(
             (article for article in articles 
@@ -180,54 +269,20 @@ class TWStockSelector(ArticleSelector):
             None
         )
 
-        # 第一段：使用 top30 相關文章，最多 section_limits[0] 篇
-        first_section = []
+        # 從所有文章中選出前 SECTION_LIMITS[1] 篇，如果有外資買賣超文章則少選一篇
+        limit = self.SECTION_LIMITS[1] - (1 if foreign_investment_article else 0)
+        selected_articles = articles[:limit]
+
+        # 如果有外資買賣超文章，加在最前面
         if foreign_investment_article:
-            first_section.append(foreign_investment_article)
-            # 從 top30 文章中選取剩餘的名額，但要排除外資買賣超文章
-            remaining_slots = self.SECTION_LIMITS[0] - 1
-            for article in top30_stock_articles:
-                if article.news_id != foreign_investment_article.news_id and len(first_section) < self.SECTION_LIMITS[0]:
-                    first_section.append(article)
-        else:
-            first_section = top30_stock_articles[:self.SECTION_LIMITS[0]]
-        
-        # 3. 找出非第一段的文章，按時間排序
-        used_ids = {article.news_id for article in first_section}
-        remaining_articles = [
-            article for article in articles 
-            if article.news_id not in used_ids
-        ]
-        
-        # 第二段：剩餘文章，數量為總限制減去第一段的數量
-        total_limit = self.SECTION_LIMITS[0] + self.SECTION_LIMITS[1]
-        second_section_limit = total_limit - len(first_section)
-        second_section = remaining_articles[:second_section_limit]
-        
-        # 計算每份的基本長度和餘數
-        base_length = len(second_section) // 3
-        
-        # 分割 second_section
-        second_section_part1 = second_section[:base_length]
-        second_section_part2 = second_section[base_length:base_length*2]
-        second_section_part3 = second_section[base_length*2:]  # 自動包含剩餘的部分
+            selected_articles.insert(0, foreign_investment_article)
 
-        # 將 first_section 分成兩個子段落
-        first_half = len(first_section) // 2
-        first_section_part1 = first_section[:first_half]
-        first_section_part2 = first_section[first_half:]
-
-        # 建立三層結構
+        # 建立三層結構，所有文章放在一個段落中
         sectioned_articles = [
-            # 第一個主要段落：重要公司新聞
+            # 只有一個主要段落
             [
-                section for section in [first_section_part1, first_section_part2]
-                if len(section) > 0
-            ],
-            # 第二個主要段落：時間排序新聞
-            [
-                section for section in [second_section_part1, second_section_part2, second_section_part3]
-                if len(section) > 0
+                # 只有一個子段落
+                selected_articles
             ]
         ]
 

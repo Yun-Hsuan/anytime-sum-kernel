@@ -10,7 +10,7 @@ class HeadlineSelector(ArticleSelector):
     """頭條新聞選擇器"""
     
     # 定義分段限制
-    SECTION_LIMITS = [8, 7, 0]  # 第一段5篇，第二段5篇，第三段10篇
+    SECTION_LIMITS = [7, 5, 0]  # 第一段5篇，第二段5篇，第三段10篇
     
     # 定義宏觀經濟相關標籤
     MACRO_TAGS = ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"]

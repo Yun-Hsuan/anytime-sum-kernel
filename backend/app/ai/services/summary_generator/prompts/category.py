@@ -52,9 +52,9 @@ def get_system_prompt_paragraph(
     word_limit = "120"
     article_count = end_idx - begin_idx + 1
     if source_type == "Hot_News_Summary":
-        word_limit = "120" if article_count < 3 else "150"
+        word_limit = "96" if article_count < 3 else "120"
     else:
-        word_limit = "200" if article_count < 3 else "300"
+        word_limit = "160" if article_count < 3 else "240"
     
     # 根據 begin_idx 決定是否加入外資買賣超規則
     task_requirements = """任務要求：

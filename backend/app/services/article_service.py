@@ -99,8 +99,9 @@ class ArticleService:
         
         # TODO: 未來應將這些類別設定移到配置文件中
         source_categories = {
-            "Hot_News_Summary": ["全球宏觀", "經濟發展趨勢", "地緣政治局勢"],
-            "TW_Stock_Summary": ["外資台股大盤買賣超"]
+            "Hot_News_Summary": ["全球宏觀", "經濟發展趨勢", "地緣政治局勢", "企業虧損", "企業虧損"],
+            "TW_Stock_Summary": ["外資台股大盤買賣超", "企業虧損"],
+            "US_Stock_Summary": ["企業虧損"]
         }
         
         # TODO: 未來應將文章處理邏輯拆分到獨立的處理器中
