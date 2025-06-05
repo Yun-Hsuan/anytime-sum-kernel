@@ -274,8 +274,8 @@ class TWStockSelector(ArticleSelector):
         selected_articles = articles[:limit]
 
         # 如果有外資買賣超文章，加在最前面
-        if foreign_investment_article:
-            selected_articles.insert(0, foreign_investment_article)
+        #if foreign_investment_article:
+        #    selected_articles.insert(0, foreign_investment_article)
 
         # 按時間排序並限制數量
         all_articles = selected_articles
